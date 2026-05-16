@@ -127,6 +127,14 @@ dist
 
 # pnpm
 .pnpm-store
+.pnpm-store/
+
+# Electron Forge build outputs
+out/
+.vite/
+
+# Husky auto-generated runtime
+.husky/_
 
 # yarn v3
 .pnp.*
