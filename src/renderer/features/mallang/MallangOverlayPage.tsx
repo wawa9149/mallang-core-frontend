@@ -161,7 +161,7 @@ const Bubble = styled(motion.div)`
     content: '';
     position: absolute;
     bottom: -8px;
-    right: 28px;
+    right: 64px;
     width: 18px;
     height: 14px;
     background: inherit;
