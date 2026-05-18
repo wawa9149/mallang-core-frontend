@@ -60,17 +60,28 @@ const SideHoverZone = styled.button<{ $side: 'left' | 'right' }>`
   top: 0;
   /* 채팅 입력(PromptRow 44px + Overlay padding-bottom 20px + gap 16px)을 침범하지 않도록 비워둔다. */
   bottom: calc(44px + 20px + 16px);
-  width: 56px;
-  ${({ $side }) => ($side === 'left' ? 'left: 0;' : 'right: 0;')}
+  width: 64px;
+  ${({ $side }) =>
+    $side === 'left'
+      ? `
+        left: 0;
+        mask-image: linear-gradient(to right, black 0%, black 60%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to right, black 0%, black 60%, transparent 100%);
+      `
+      : `
+        right: 0;
+        mask-image: linear-gradient(to left, black 0%, black 60%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to left, black 0%, black 60%, transparent 100%);
+      `}
   display: grid;
   place-items: center;
   background: transparent;
   color: ${({ theme }) => theme.brand.primary};
   opacity: 0;
   transition:
-    background-color 180ms ease,
-    opacity 180ms ease,
-    backdrop-filter 180ms ease;
+    background-color 220ms ease-out,
+    opacity 220ms ease-out,
+    backdrop-filter 220ms ease-out;
   cursor: pointer;
   z-index: 5;
 
