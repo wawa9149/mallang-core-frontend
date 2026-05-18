@@ -116,17 +116,27 @@ export function TextInput({
 
 /* ===== TimeTripleInput ===== */
 
-const TimeGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+const TimeStack = styled.div`
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   width: 100%;
+  min-width: 0;
+`;
+
+const TimeGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
 `;
 
 const TimeLabel = styled.label`
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
   font-size: 11px;
   font-weight: 600;
   color: ${({ theme }) => theme.brand.subtitle};
@@ -134,17 +144,20 @@ const TimeLabel = styled.label`
 `;
 
 const TimeInput = styled.input`
+  width: 100%;
+  min-width: 0;
   height: 44px;
+  box-sizing: border-box;
   border: 1.5px solid transparent;
   border-radius: 14px;
   background: ${({ theme }) => theme.brand.inputBg};
   color: ${({ theme }) => theme.brand.inputText};
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   font-family: inherit;
   text-align: center;
   outline: none;
-  padding: 0 8px;
+  padding: 0 4px;
   transition: border-color 160ms ease;
 
   &:focus {
@@ -152,6 +165,8 @@ const TimeInput = styled.input`
   }
 
   &::-webkit-calendar-picker-indicator {
+    margin-left: 2px;
+    padding: 0;
     opacity: 0.4;
   }
 `;
@@ -160,7 +175,6 @@ const TimeSubmitRow = styled.div`
   display: flex;
   justify-content: flex-end;
   width: 100%;
-  margin-top: 8px;
 `;
 
 interface TimeTripleProps {
@@ -179,7 +193,7 @@ export function TimeTripleInput({ onSubmit }: TimeTripleProps) {
   const disabled = !workStart || !lunch || !workEnd;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+    <TimeStack>
       <TimeGrid>
         <TimeLabel>
           출근
@@ -216,7 +230,7 @@ export function TimeTripleInput({ onSubmit }: TimeTripleProps) {
           ↑
         </SendButton>
       </TimeSubmitRow>
-    </div>
+    </TimeStack>
   );
 }
 

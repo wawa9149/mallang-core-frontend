@@ -24,9 +24,11 @@ const Wrapper = styled.div`
 const CharacterArea = styled.div`
   position: relative;
   flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding-bottom: 8px;
 `;
 
 const Bubble = styled(motion.div)`
@@ -129,7 +131,7 @@ export function OnboardingFlow() {
             {step.prompt(answers)}
           </Bubble>
         </AnimatePresence>
-        <MallangCharacter state="neutral" persona={persona} size={220} />
+        <MallangCharacter state="neutral" persona={persona} size={160} />
       </CharacterArea>
 
       {step.type === 'confirm' && (
