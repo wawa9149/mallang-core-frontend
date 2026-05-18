@@ -70,20 +70,11 @@ export function LoginPage() {
       // 메인 창은 닫고 캐릭터 창에서 온보딩 채팅을 이어간다.
       await window.mallang?.window.closeMain();
     } catch (error) {
-      if (error instanceof AuthError) {
-        if (error.code === 'EMAIL_NOT_FOUND') {
-          setError('email', { type: 'server', message: error.message });
-        } else if (error.code === 'WRONG_PASSWORD') {
-          setError('password', { type: 'server', message: error.message });
-        } else {
-          setError('root', { type: 'server', message: error.message });
-        }
-        return;
-      }
-      setError('root', {
-        type: 'server',
-        message: '로그인 중 알 수 없는 오류가 발생했어.',
-      });
+      const message =
+        error instanceof AuthError
+          ? error.message
+          : '로그인 중 알 수 없는 오류가 발생했어.';
+      setError('root', { type: 'server', message });
     }
   });
 

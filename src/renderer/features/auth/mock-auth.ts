@@ -83,7 +83,10 @@ export async function mockLogin(
   const account = accounts.find((entry) => entry.email === normalized);
 
   if (!account) {
-    throw new AuthError('EMAIL_NOT_FOUND', '등록되지 않은 이메일이야.');
+    throw new AuthError(
+      'EMAIL_NOT_FOUND',
+      '등록되지 않은 이메일이야. 먼저 계정을 만들어 줘.',
+    );
   }
   if (account.password !== password) {
     throw new AuthError('WRONG_PASSWORD', '비밀번호가 일치하지 않아.');
