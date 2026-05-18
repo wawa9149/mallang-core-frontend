@@ -6,6 +6,7 @@ import {
   type UserProfile,
 } from '../../../shared/types/domain';
 import { useUserProfileStore } from '../../shared/stores/user-profile-store';
+import { signOutAndReturnToLogin } from '../../shared/window/sign-out';
 
 const Page = styled.div`
   width: 100%;
@@ -108,6 +109,24 @@ const SaveButton = styled.button`
   }
 `;
 
+const SignOutButton = styled.button`
+  height: 36px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid ${({ theme }) => theme.colors.dangerSurface};
+  color: ${({ theme }) => theme.colors.danger};
+  font-size: 12px;
+  font-weight: 600;
+  -webkit-app-region: no-drag;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.dangerSurface};
+  }
+  &:active {
+    transform: scale(0.99);
+  }
+`;
+
 const Toast = styled.div`
   font-size: 12px;
   font-weight: 600;
@@ -157,6 +176,12 @@ export function MyPagePage() {
     // TODO: PATCH /users/me 로 교체
     setProfile(draft);
     setSaved(true);
+  };
+
+  const handleSignOut = () => {
+    signOutAndReturnToLogin().catch((error) => {
+      console.error('[mypage] sign out failed', error);
+    });
   };
 
   return (
@@ -228,6 +253,9 @@ export function MyPagePage() {
         </FieldLabel>
         {saved && <Toast>저장했어!</Toast>}
         <SaveButton type="submit">저장</SaveButton>
+        <SignOutButton type="button" onClick={handleSignOut}>
+          로그아웃
+        </SignOutButton>
       </Form>
     </Page>
   );
