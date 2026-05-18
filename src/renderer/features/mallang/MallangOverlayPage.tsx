@@ -58,7 +58,8 @@ const Overlay = styled.div`
 const SideHoverZone = styled.button<{ $side: 'left' | 'right' }>`
   position: absolute;
   top: 0;
-  bottom: 0;
+  /* 채팅 입력(PromptRow 44px + Overlay padding-bottom 20px + gap 16px)을 침범하지 않도록 비워둔다. */
+  bottom: calc(44px + 20px + 16px);
   width: 56px;
   ${({ $side }) => ($side === 'left' ? 'left: 0;' : 'right: 0;')}
   display: grid;
