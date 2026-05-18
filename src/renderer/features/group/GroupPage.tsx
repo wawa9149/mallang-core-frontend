@@ -1,19 +1,20 @@
+import { useQuery } from '@tanstack/react-query';
 import styled from 'styled-components';
+import { fetchActiveLunchVotes } from '../../shared/api/lunch-votes-api';
+import { fetchTeamMembers } from '../../shared/api/teams-api';
 import { CloseButton } from '../../shared/components/CloseButton';
 import { useEscapeToClose } from '../../shared/hooks/useEscapeToClose';
+import { TeamMembersSection } from './components/TeamMembersSection';
 
 const Page = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
   background: ${({ theme }) => theme.brand.background};
-  padding: 24px 20px;
+  padding: 24px 20px 20px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 12px;
+  gap: 16px;
   -webkit-app-region: drag;
 `;
 
@@ -24,12 +25,68 @@ const Title = styled.h1`
   color: ${({ theme }) => theme.brand.title};
 `;
 
-const Description = styled.p`
+const Scroll = styled.div`
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  -webkit-app-region: no-drag;
+`;
+
+const VoteCallout = styled.section`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: ${({ theme }) => theme.brand.inputBg};
+`;
+
+const VoteHeader = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+`;
+
+const VoteTitle = styled.h2`
   margin: 0;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.6;
+  font-size: 14px;
+  font-weight: 800;
+  color: ${({ theme }) => theme.brand.title};
+`;
+
+const VoteMeta = styled.span`
+  font-size: 11px;
+  font-weight: 600;
   color: ${({ theme }) => theme.brand.subtitle};
+`;
+
+const VoteBody = styled.p`
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: ${({ theme }) => theme.brand.subtitle};
+`;
+
+const OpenVoteButton = styled.button`
+  min-height: 40px;
+  margin-top: 6px;
+  border-radius: 12px;
+  background: ${({ theme }) => theme.brand.primary};
+  color: ${({ theme }) => theme.brand.promptText};
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+
+  &:hover {
+    background: ${({ theme }) => theme.brand.primaryHover};
+  }
+  &:active {
+    transform: scale(0.99);
+  }
 `;
 
 export function GroupPage() {
@@ -41,15 +98,66 @@ export function GroupPage() {
 
   useEscapeToClose(handleClose);
 
+  const teamQuery = useQuery({
+    queryKey: ['team', 'me', 'members'],
+    queryFn: fetchTeamMembers,
+  });
+  const hasTeam = Boolean(teamQuery.data?.team);
+
+  const activeVoteQuery = useQuery({
+    queryKey: ['lunch-votes', 'active'],
+    queryFn: fetchActiveLunchVotes,
+    enabled: hasTeam,
+  });
+
+  const activeVote = activeVoteQuery.data?.[0];
+
+  const handleOpenLunchVote = () => {
+    window.mallang?.window.openLunchVote().catch((error) => {
+      console.error('[group] open lunch-vote failed', error);
+    });
+  };
+
   return (
     <Page>
       <CloseButton onClick={handleClose} />
       <Title>그룹 말랑이</Title>
-      <Description>
-        팀원들의 말랑이가 모이는 공간을
-        <br />
-        준비하고 있어. 조금만 기다려 줘.
-      </Description>
+      <Scroll>
+        <TeamMembersSection
+          data={teamQuery.data}
+          isLoading={teamQuery.isLoading}
+        />
+        {hasTeam && (
+          <VoteCallout>
+            <VoteHeader>
+              <VoteTitle>점심 투표</VoteTitle>
+              {activeVote ? (
+                activeVote.status === 'closed' ? (
+                  <VoteMeta>오늘 투표 마감됨</VoteMeta>
+                ) : (
+                  <VoteMeta>{activeVote.totalVotes}명 참여 중</VoteMeta>
+                )
+              ) : (
+                <VoteMeta>진행 중인 투표 없음</VoteMeta>
+              )}
+            </VoteHeader>
+            <VoteBody>
+              {activeVote
+                ? activeVote.status === 'closed'
+                  ? `"${activeVote.title}" 투표가 마감됐어. 결과는 별창에서 확인하고, 거기서 새 투표도 시작할 수 있어.`
+                  : `"${activeVote.title}" 투표가 열려 있어. 별창에서 옵션 보기/투표/마감을 할 수 있어.`
+                : '점심 투표는 별창에서 만들고 진행해. 다른 팀원도 같은 창에서 볼 수 있어.'}
+            </VoteBody>
+            <OpenVoteButton type="button" onClick={handleOpenLunchVote}>
+              {activeVote
+                ? activeVote.status === 'closed'
+                  ? '결과 보기'
+                  : '투표 창 열기'
+                : '새 투표 시작하기'}
+            </OpenVoteButton>
+          </VoteCallout>
+        )}
+      </Scroll>
     </Page>
   );
 }
