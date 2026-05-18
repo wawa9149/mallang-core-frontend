@@ -24,6 +24,20 @@ export const MALLANG_PERSONA_LABEL: Record<MallangPersona, string> = {
   'self-development': '자기개발',
 };
 
+/**
+ * 사용자가 직접 편집할 수 있는 프로필 정보.
+ * 온보딩 완료 시 한 번에 채워지고, 이후 마이페이지에서 수정할 수 있다.
+ */
+export interface UserProfile {
+  name: string;
+  team: string;
+  workStartTime: string;
+  lunchTime: string;
+  workEndTime: string;
+  hobby: MallangPersona;
+  allergies: string;
+}
+
 export type EmotionSource =
   | 'morning_check'
   | 'daily_closing'

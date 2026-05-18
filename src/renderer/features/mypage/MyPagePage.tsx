@@ -1,0 +1,234 @@
+import { useEffect, useState } from 'react';
+import styled from 'styled-components';
+import {
+  MALLANG_PERSONA_LABEL,
+  type MallangPersona,
+  type UserProfile,
+} from '../../../shared/types/domain';
+import { useUserProfileStore } from '../../shared/stores/user-profile-store';
+
+const Page = styled.div`
+  width: 100%;
+  height: 100%;
+  background: ${({ theme }) => theme.brand.background};
+  padding: 24px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  -webkit-app-region: drag;
+`;
+
+const Title = styled.h1`
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: ${({ theme }) => theme.brand.title};
+`;
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-app-region: no-drag;
+`;
+
+const FieldLabel = styled.label`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.brand.subtitle};
+`;
+
+const Input = styled.input`
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 0 14px;
+  background: ${({ theme }) => theme.brand.inputBg};
+  color: ${({ theme }) => theme.brand.inputText};
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+
+  &::placeholder {
+    color: ${({ theme }) => theme.brand.inputPlaceholder};
+  }
+
+  &:focus {
+    border-color: ${({ theme }) => theme.brand.primary};
+  }
+`;
+
+const Select = styled.select`
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 0 14px;
+  background: ${({ theme }) => theme.brand.inputBg};
+  color: ${({ theme }) => theme.brand.inputText};
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+
+  &:focus {
+    border-color: ${({ theme }) => theme.brand.primary};
+  }
+`;
+
+const TimeRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+`;
+
+const TimeInput = styled(Input)`
+  text-align: center;
+  padding: 0 6px;
+`;
+
+const SaveButton = styled.button`
+  height: 48px;
+  border-radius: 16px;
+  background: ${({ theme }) => theme.brand.primary};
+  color: ${({ theme }) => theme.brand.promptText};
+  font-size: 14px;
+  font-weight: 700;
+  -webkit-app-region: no-drag;
+
+  &:hover {
+    background: ${({ theme }) => theme.brand.primaryHover};
+  }
+  &:active {
+    transform: scale(0.99);
+  }
+`;
+
+const Toast = styled.div`
+  font-size: 12px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.success};
+  text-align: center;
+`;
+
+const EMPTY_DRAFT: UserProfile = {
+  name: '',
+  team: '',
+  workStartTime: '09:00',
+  lunchTime: '12:30',
+  workEndTime: '18:00',
+  hobby: 'rest',
+  allergies: '',
+};
+
+const HOBBY_OPTIONS: MallangPersona[] = ['rest', 'workout', 'self-development'];
+
+export function MyPagePage() {
+  const profile = useUserProfileStore((state) => state.profile);
+  const setProfile = useUserProfileStore((state) => state.setProfile);
+  const [draft, setDraft] = useState<UserProfile>(profile ?? EMPTY_DRAFT);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (profile) setDraft(profile);
+  }, [profile]);
+
+  useEffect(() => {
+    if (!saved) return;
+    const timer = window.setTimeout(() => setSaved(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [saved]);
+
+  const handleChange =
+    <K extends keyof UserProfile>(key: K) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setDraft((prev) => ({
+        ...prev,
+        [key]: event.target.value as UserProfile[K],
+      }));
+    };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    // TODO: PATCH /users/me 로 교체
+    setProfile(draft);
+    setSaved(true);
+  };
+
+  return (
+    <Page>
+      <Title>마이페이지</Title>
+      <Form onSubmit={handleSubmit}>
+        <FieldLabel>
+          이름
+          <Input
+            value={draft.name}
+            onChange={handleChange('name')}
+            placeholder="이름"
+            maxLength={16}
+          />
+        </FieldLabel>
+        <FieldLabel>
+          팀 이름
+          <Input
+            value={draft.team}
+            onChange={handleChange('team')}
+            placeholder="팀 이름"
+            maxLength={30}
+          />
+        </FieldLabel>
+        <TimeRow>
+          <FieldLabel>
+            출근 시간
+            <TimeInput
+              type="time"
+              value={draft.workStartTime}
+              onChange={handleChange('workStartTime')}
+            />
+          </FieldLabel>
+          <FieldLabel>
+            점심 시간
+            <TimeInput
+              type="time"
+              value={draft.lunchTime}
+              onChange={handleChange('lunchTime')}
+            />
+          </FieldLabel>
+          <FieldLabel>
+            퇴근 시간
+            <TimeInput
+              type="time"
+              value={draft.workEndTime}
+              onChange={handleChange('workEndTime')}
+            />
+          </FieldLabel>
+        </TimeRow>
+        <FieldLabel>
+          취미
+          <Select value={draft.hobby} onChange={handleChange('hobby')}>
+            {HOBBY_OPTIONS.map((value) => (
+              <option key={value} value={value}>
+                {MALLANG_PERSONA_LABEL[value]}
+              </option>
+            ))}
+          </Select>
+        </FieldLabel>
+        <FieldLabel>
+          못 먹는 음식
+          <Input
+            value={draft.allergies}
+            onChange={handleChange('allergies')}
+            placeholder="없으면 비워둬도 돼"
+            maxLength={60}
+          />
+        </FieldLabel>
+        {saved && <Toast>저장했어!</Toast>}
+        <SaveButton type="submit">저장</SaveButton>
+      </Form>
+    </Page>
+  );
+}

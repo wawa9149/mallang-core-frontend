@@ -12,6 +12,10 @@ const mallangBridge = {
     closeMain: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.CLOSE_MAIN),
     openMallang: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.OPEN_MALLANG),
     closeMallang: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.CLOSE_MALLANG),
+    openMyPage: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.OPEN_MYPAGE),
+    closeMyPage: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.CLOSE_MYPAGE),
+    openGroup: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.OPEN_GROUP),
+    closeGroup: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.CLOSE_GROUP),
     minimize: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.MINIMIZE),
     setIgnoreMouse: (ignore: boolean) =>
       ipcRenderer.invoke(IPC_CHANNELS.WINDOW.SET_IGNORE_MOUSE, ignore),

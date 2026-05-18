@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMallangStore } from '../../shared/stores/mallang-store';
+import { useUserProfileStore } from '../../shared/stores/user-profile-store';
 import type { MallangState } from '../../../shared/types/domain';
 import { OnboardingFlow } from '../onboarding/OnboardingFlow';
 import { MallangCharacter } from './components/MallangCharacter';
@@ -53,6 +54,71 @@ const Overlay = styled.div`
     -webkit-app-region: no-drag;
   }
 `;
+
+const SideHoverZone = styled.button<{ $side: 'left' | 'right' }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  ${({ $side }) => ($side === 'left' ? 'left: 0;' : 'right: 0;')}
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: ${({ theme }) => theme.brand.primary};
+  opacity: 0;
+  transition:
+    background-color 180ms ease,
+    opacity 180ms ease;
+  cursor: pointer;
+  z-index: 5;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+    background: ${({ theme }) => theme.brand.bubble};
+  }
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+`;
+
+function GearIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.86a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9c.27.65.84 1.11 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.03z" />
+    </svg>
+  );
+}
+
+function GroupIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
 
 const CharacterArea = styled.div`
   position: relative;
@@ -201,6 +267,9 @@ function MicIcon() {
 export function MallangOverlayPage() {
   const { state, persona, recentBubble, isOnboarded, setState, setBubble } =
     useMallangStore();
+  const profile = useUserProfileStore((s) => s.profile);
+  const onboardingComplete = isOnboarded || profile !== null;
+  const effectivePersona = profile?.hobby ?? persona;
   const [stateIndex, setStateIndex] = useState(0);
   const [prompt, setPrompt] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -246,7 +315,15 @@ export function MallangOverlayPage() {
     setBubble('음성 입력은 곧 만들 거야!');
   };
 
-  if (!isOnboarded) {
+  const handleOpenMyPage = () => {
+    window.mallang?.window.openMyPage();
+  };
+
+  const handleOpenGroup = () => {
+    window.mallang?.window.openGroup();
+  };
+
+  if (!onboardingComplete) {
     return (
       <Overlay>
         <OnboardingFlow />
@@ -256,6 +333,27 @@ export function MallangOverlayPage() {
 
   return (
     <Overlay>
+      <SideHoverZone
+        type="button"
+        $side="left"
+        data-no-drag
+        onClick={handleOpenMyPage}
+        aria-label="마이페이지 열기"
+        title="마이페이지"
+      >
+        <GearIcon />
+      </SideHoverZone>
+      <SideHoverZone
+        type="button"
+        $side="right"
+        data-no-drag
+        onClick={handleOpenGroup}
+        aria-label="그룹 말랑이 열기"
+        title="그룹 말랑이"
+      >
+        <GroupIcon />
+      </SideHoverZone>
+
       <Controls data-no-drag>
         <IconButton onClick={handleCycleState} title="상태 전환(데모)">
           ◆
@@ -287,7 +385,7 @@ export function MallangOverlayPage() {
         </AnimatePresence>
         <MallangCharacter
           state={state}
-          persona={persona}
+          persona={effectivePersona}
           size={220}
           onClick={handleClick}
         />

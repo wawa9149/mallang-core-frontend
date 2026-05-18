@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import type { MallangPersona } from '../../../shared/types/domain';
 import { MallangCharacter } from '../mallang/components/MallangCharacter';
 import { useMallangStore } from '../../shared/stores/mallang-store';
+import { useUserProfileStore } from '../../shared/stores/user-profile-store';
 import {
   ChoiceInput,
   ConfirmInput,
@@ -75,6 +76,7 @@ export function OnboardingFlow() {
   const { stepIndex, answers, updateAnswers, next, reset } =
     useOnboardingStore();
   const { persona, setPersona, setOnboarded } = useMallangStore();
+  const setProfile = useUserProfileStore((state) => state.setProfile);
 
   const step = ONBOARDING_STEPS[stepIndex];
   if (!step) return null;
@@ -110,6 +112,15 @@ export function OnboardingFlow() {
 
   const handleConfirmYes = () => {
     // TODO: POST /users/onboarding 으로 답변 전송
+    setProfile({
+      name: answers.name,
+      team: answers.team,
+      workStartTime: answers.workStart,
+      lunchTime: answers.lunch,
+      workEndTime: answers.workEnd,
+      hobby: answers.hobby ?? 'rest',
+      allergies: answers.allergies,
+    });
     setOnboarded(true);
     reset();
   };
