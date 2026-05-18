@@ -51,10 +51,11 @@ const Bubble = styled(motion.div)`
     content: '';
     position: absolute;
     bottom: -8px;
-    left: 22px;
+    right: 28px;
     width: 18px;
     height: 14px;
     background: inherit;
+    /* 말풍선 우측 하단에서 좌하단(=캐릭터 머리 쪽)을 가리키는 꼬리 */
     clip-path: polygon(0 0, 100% 0, 30% 100%);
   }
 `;
