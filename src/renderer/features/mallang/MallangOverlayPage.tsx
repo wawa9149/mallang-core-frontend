@@ -39,16 +39,13 @@ const Overlay = styled.div`
   height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 16px 24px 24px;
-  gap: 24px;
-  background: linear-gradient(160deg, #f6f1ff 0%, #fdf6ec 100%);
+  padding: 24px 20px 20px;
+  gap: 16px;
+  background: ${({ theme }) => theme.brand.background};
   position: relative;
   overflow: hidden;
   -webkit-app-region: drag;
 
-  /* 캐릭터/버튼/말풍선은 드래그에서 제외해서 클릭/입력 이벤트가 살아있게 */
   & button,
   & input,
   & [data-no-drag] {
@@ -56,44 +53,48 @@ const Overlay = styled.div`
   }
 `;
 
+const CharacterArea = styled.div`
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
 const Bubble = styled(motion.div)`
   position: absolute;
-  bottom: calc(100% + 24px);
-  left: 50%;
-  background: ${({ theme }) => theme.colors.surface};
-  color: ${({ theme }) => theme.colors.text};
-  padding: 12px 16px;
-  border-radius: ${({ theme }) => theme.radii.md};
+  top: 0;
+  left: 0;
+  max-width: calc(100% - 24px);
+  padding: 14px 20px;
+  background: ${({ theme }) => theme.brand.bubble};
+  color: ${({ theme }) => theme.brand.bubbleText};
   font-size: 14px;
-  font-weight: 500;
-  line-height: 1.45;
-  box-shadow: ${({ theme }) => theme.shadows.floating};
-  width: max-content;
-  max-width: calc(100vw - 64px);
-  text-align: center;
-  pointer-events: none;
+  font-weight: 700;
+  line-height: 1.4;
+  border-radius: 18px;
   white-space: pre-wrap;
   word-break: keep-all;
   overflow-wrap: anywhere;
+  pointer-events: none;
   z-index: 2;
 
   &::after {
     content: '';
     position: absolute;
-    bottom: -6px;
-    left: 50%;
-    transform: translateX(-50%) rotate(45deg);
-    width: 12px;
-    height: 12px;
+    bottom: -8px;
+    left: 22px;
+    width: 18px;
+    height: 14px;
     background: inherit;
-    box-shadow: 2px 2px 4px rgba(20, 20, 40, 0.06);
+    clip-path: polygon(0 0, 100% 0, 30% 100%);
   }
 `;
 
 const Controls = styled.div`
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   display: flex;
   gap: 4px;
   opacity: 0;
@@ -109,66 +110,68 @@ const IconButton = styled.button`
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.7);
   font-size: 12px;
-  color: ${({ theme }) => theme.colors.textMuted};
+  color: ${({ theme }) => theme.brand.primary};
   box-shadow: 0 1px 4px rgba(20, 20, 40, 0.08);
 
   &:hover {
-    background: ${({ theme }) => theme.colors.surface};
-    color: ${({ theme }) => theme.colors.text};
+    background: #ffffff;
   }
 `;
 
-const CharacterSlot = styled.div`
-  position: relative;
-  width: 140px;
-  height: 140px;
+const PromptRow = styled.form`
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-`;
-
-const PromptForm = styled.form`
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  max-width: 296px;
-  background: ${({ theme }) => theme.colors.surface};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.radii.pill};
-  padding: 8px 14px;
-  box-shadow: 0 2px 8px rgba(20, 20, 40, 0.06);
-
-  &:focus-within {
-    border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 3px ${({ theme }) => theme.colors.primarySoft};
-  }
 `;
 
 const PromptInput = styled.input`
   flex: 1;
   min-width: 0;
+  height: 52px;
+  padding: 0 22px;
   border: none;
   outline: none;
-  background: transparent;
-  font-size: 13px;
-  color: ${({ theme }) => theme.colors.text};
+  background: ${({ theme }) => theme.brand.promptBg};
+  color: ${({ theme }) => theme.brand.promptText};
+  border-radius: ${({ theme }) => theme.radii.pill};
+  font-size: 14px;
   font-family: inherit;
 
   &::placeholder {
-    color: ${({ theme }) => theme.colors.textMuted};
+    color: ${({ theme }) => theme.brand.promptPlaceholder};
   }
 `;
 
-const Counter = styled.span<{ $full?: boolean }>`
-  font-size: 11px;
-  color: ${({ theme, $full }) =>
-    $full ? theme.colors.primary : theme.colors.textMuted};
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+const SendButton = styled.button`
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: ${({ theme }) => theme.brand.promptBg};
+  color: ${({ theme }) => theme.brand.promptText};
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 700;
+  transition:
+    background-color 160ms ease,
+    transform 120ms ease;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.brand.primaryHover};
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
 `;
 
 export function MallangOverlayPage() {
@@ -179,7 +182,7 @@ export function MallangOverlayPage() {
 
   useEffect(() => {
     if (!recentBubble) return;
-    const timer = setTimeout(() => setBubble(null), 3000);
+    const timer = setTimeout(() => setBubble(null), 4000);
     return () => clearTimeout(timer);
   }, [recentBubble, setBubble]);
 
@@ -230,24 +233,24 @@ export function MallangOverlayPage() {
         </IconButton>
       </Controls>
 
-      <CharacterSlot data-no-drag>
+      <CharacterArea data-no-drag>
         <AnimatePresence>
           {recentBubble && (
             <Bubble
               key={recentBubble}
-              initial={{ opacity: 0, x: '-50%', y: 6 }}
-              animate={{ opacity: 1, x: '-50%', y: 0 }}
-              exit={{ opacity: 0, x: '-50%', y: 6 }}
-              transition={{ duration: 0.18 }}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.2 }}
             >
               {recentBubble}
             </Bubble>
           )}
         </AnimatePresence>
-        <MallangCharacter state={state} size={140} onClick={handleClick} />
-      </CharacterSlot>
+        <MallangCharacter state={state} size={220} onClick={handleClick} />
+      </CharacterArea>
 
-      <PromptForm
+      <PromptRow
         data-no-drag
         onSubmit={(event) => {
           event.preventDefault();
@@ -264,11 +267,16 @@ export function MallangOverlayPage() {
           onCompositionEnd={() => setIsComposing(false)}
           placeholder="말 걸어봐 (30자 이내)"
           maxLength={MAX_PROMPT_LENGTH}
+          aria-label="말랑이에게 보낼 메시지"
         />
-        <Counter $full={prompt.length >= MAX_PROMPT_LENGTH}>
-          {prompt.length}/{MAX_PROMPT_LENGTH}
-        </Counter>
-      </PromptForm>
+        <SendButton
+          type="submit"
+          disabled={!prompt.trim()}
+          aria-label="메시지 보내기"
+        >
+          ↑
+        </SendButton>
+      </PromptRow>
     </Overlay>
   );
 }

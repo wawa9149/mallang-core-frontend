@@ -15,8 +15,8 @@ export function createMallangWindow() {
   }
 
   const { workArea } = screen.getPrimaryDisplay();
-  const width = 360;
-  const height = 360;
+  const width = 380;
+  const height = 460;
 
   mallangWindow = new BrowserWindow({
     width,

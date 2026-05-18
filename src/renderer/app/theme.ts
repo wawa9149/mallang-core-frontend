@@ -76,6 +76,11 @@ export const appTheme = {
     inputBorder: 'transparent',
     inputBorderFocus: '#8C6660',
     link: '#7E5D58',
+    bubble: '#EAE0D8',
+    bubbleText: '#5C4338',
+    promptBg: '#8C6660',
+    promptText: '#FFFFFF',
+    promptPlaceholder: 'rgba(255, 255, 255, 0.65)',
   },
   radii: {
     sm: '6px',
