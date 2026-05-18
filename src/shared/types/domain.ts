@@ -57,6 +57,10 @@ export interface User {
   lunchTime: string;
   workEndTime: string;
   averageOvertimeCount: number;
+  /** 사용자가 OpenAI API 키를 등록했는지. 등록된 경우에만 채팅/리포트가 동작한다. */
+  hasOpenAiKey: boolean;
+  /** "sk-...{last4}" 같은 마스킹 힌트. 없으면 null. */
+  openaiKeyHint: string | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
 }

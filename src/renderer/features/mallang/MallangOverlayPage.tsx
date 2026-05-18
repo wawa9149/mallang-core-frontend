@@ -1,40 +1,96 @@
+import { useMutation } from '@tanstack/react-query';
+import axios from 'axios';
 import type { KeyboardEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { AnimatePresence, motion } from 'framer-motion';
+import type {
+  ScheduledIntent,
+  SchedulerIntentFiredPayload,
+} from '../../../shared/ipc/channels';
+import type { MallangPersona } from '../../../shared/types/domain';
+import bgRest from '../../assets/backgrounds/rest.png';
+import bgSelfDevelopment from '../../assets/backgrounds/self-development.png';
+import bgWorkout from '../../assets/backgrounds/workout.png';
+import { fetchMe } from '../../shared/api/auth-api';
+import { sendChat } from '../../shared/api/chats-api';
+import { hobbyToPersona } from '../../shared/api/mappers';
+import type { BackendChatIntent, BackendEmotion } from '../../shared/api/types';
+import { syncSchedulerFromStores } from '../../shared/scheduler/sync';
+import { useAuthStore } from '../../shared/stores/auth-store';
 import { useMallangStore } from '../../shared/stores/mallang-store';
 import { useUserProfileStore } from '../../shared/stores/user-profile-store';
 import { OnboardingFlow } from '../onboarding/OnboardingFlow';
 import { MallangCharacter } from './components/MallangCharacter';
 import { pickClickMessage } from './data/click-messages';
 
+/**
+ * 사용자의 취미(hobby)에 따라 말랑이 창 뒤에 깔리는 배경.
+ * 온보딩에서 고른 취미와 1:1로 매핑된다.
+ */
+const PERSONA_BACKGROUND: Record<MallangPersona, string> = {
+  workout: bgWorkout,
+  'self-development': bgSelfDevelopment,
+  rest: bgRest,
+};
+
 const MAX_PROMPT_LENGTH = 30;
 
-const PROMPT_REPLIES = [
-  '그래.',
-  '들었어.',
-  '오케이.',
-  '음, 알겠어.',
-  '그렇구나.',
-  '네 마음 알지.',
-  '나도 그래.',
-  '괜찮아.',
-  '버텨.',
-  '응. 더 말해.',
-];
-
-function pickReply() {
-  return PROMPT_REPLIES[Math.floor(Math.random() * PROMPT_REPLIES.length)];
+// 백엔드 Emotion enum과 프론트 MallangState가 1:1로 매핑돼서 단순 캐스팅이지만,
+// 타입 안전을 위해 한 곳에 두고 명시적으로 통과시킨다.
+function emotionToMallangState(emotion: BackendEmotion) {
+  return emotion;
 }
 
-const Overlay = styled.div`
+function readErrorReply(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    const data = error.response?.data as { message?: unknown } | undefined;
+    if (status === 400 && typeof data?.message === 'string')
+      return data.message;
+    if (status === 503) return '잠시 후 다시 말 걸어 줘.';
+  }
+  return '음… 지금은 답하기가 어려워.';
+}
+
+/**
+ * 스케줄 intent별로 LLM에 던지는 사용자 발화. 백엔드 시스템 프롬프트에 intent 분기가 있으니
+ * 본문 자체는 자연어로 두고, 어떤 의도인지 intent 필드로 전달한다.
+ */
+const INTENT_USER_MESSAGE: Record<ScheduledIntent, string> = {
+  morning_check: '나 출근 시간이야.',
+  lunch_alert: '곧 점심 시간이야.',
+  lunch_review: '점심 다 먹었어.',
+  evening_check: '나 퇴근 시간 됐어. 오늘 어땠어?',
+};
+
+const INTENT_NOTIFICATION_TITLE: Record<ScheduledIntent, string> = {
+  morning_check: '말랑이 · 출근 체크',
+  lunch_alert: '말랑이 · 점심 10분 전',
+  lunch_review: '말랑이 · 점심 어땠어?',
+  evening_check: '말랑이 · 퇴근 체크',
+};
+
+const Overlay = styled.div<{ $bgUrl: string | null }>`
   width: 100vw;
   height: 100vh;
   display: flex;
   flex-direction: column;
   padding: 24px 20px 20px;
   gap: 16px;
-  background: ${({ theme }) => theme.brand.background};
+  /*
+   * 취미별 배경 이미지가 있으면 그 위에 흰색 톤을 살짝 덧깔아 가독성을 확보한다.
+   * 이미지가 없으면(=온보딩 전 등) 그냥 테마 배경색만.
+   */
+  background: ${({ $bgUrl, theme }) =>
+    $bgUrl
+      ? `linear-gradient(
+          to bottom,
+          color-mix(in srgb, white 40%, transparent),
+          color-mix(in srgb, white 10%, transparent)
+        ), url(${$bgUrl}) center/cover no-repeat, ${theme.brand.background}`
+      : theme.brand.background};
+  transition: background 240ms ease;
   position: relative;
   overflow: hidden;
   -webkit-app-region: drag;
@@ -141,7 +197,7 @@ const CharacterArea = styled.div`
 
 const Bubble = styled(motion.div)`
   position: absolute;
-  top: 0;
+  top: 20px;
   left: 16px;
   max-width: calc(100% - 96px);
   padding: 14px 20px;
@@ -223,6 +279,10 @@ const PromptInput = styled.input`
   &::placeholder {
     color: ${({ theme }) => theme.brand.promptPlaceholder};
   }
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
 `;
 
 const MicButton = styled.button`
@@ -279,11 +339,57 @@ function MicIcon() {
 export function MallangOverlayPage() {
   const { state, persona, recentBubble, isOnboarded, setBubble } =
     useMallangStore();
+  const setMallangState = useMallangStore((s) => s.setState);
   const profile = useUserProfileStore((s) => s.profile);
+  const updateProfile = useUserProfileStore((s) => s.updateProfile);
+  const setUser = useAuthStore((s) => s.setUser);
   const onboardingComplete = isOnboarded || profile !== null;
   const effectivePersona = profile?.hobby ?? persona;
   const [prompt, setPrompt] = useState('');
   const [isComposing, setIsComposing] = useState(false);
+  const meSyncedRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const focusPromptInput = () => {
+    // disabled 토글 직후 React가 포커스를 복구하지 않으니, microtask 한 번 미뤄 안전하게 호출한다.
+    queueMicrotask(() => {
+      inputRef.current?.focus();
+    });
+  };
+
+  interface ChatMutationVariables {
+    content: string;
+    intent?: BackendChatIntent;
+    notification?: { title: string } | null;
+  }
+
+  const chatMutation = useMutation({
+    mutationFn: ({ content, intent }: ChatMutationVariables) =>
+      sendChat(content, intent ?? 'free'),
+    onSuccess: (turn, variables) => {
+      // 말랑이 응답을 말풍선으로, 사용자 발화 감정을 캐릭터 상태로 반영한다.
+      setBubble(turn.assistantMessage.content);
+      setMallangState(emotionToMallangState(turn.emotion.emotion));
+      // 스케줄러로 들어온 발화면 OS 배너에도 같은 답을 띄운다.
+      if (variables.notification) {
+        void window.mallang?.notification
+          .show({
+            title: variables.notification.title,
+            body: turn.assistantMessage.content,
+          })
+          .catch((error) => {
+            console.error('[mallang] notification show failed', error);
+          });
+      }
+    },
+    onError: (error) => {
+      setBubble(readErrorReply(error));
+    },
+    onSettled: () => {
+      // 응답 사이클(성공/실패 모두) 끝나면 곧장 다음 발화를 칠 수 있도록 포커스를 되살린다.
+      focusPromptInput();
+    },
+  });
 
   useEffect(() => {
     if (!recentBubble) return;
@@ -291,16 +397,97 @@ export function MallangOverlayPage() {
     return () => clearTimeout(timer);
   }, [recentBubble, setBubble]);
 
+  // 다른 창에서 말랑이 창으로 돌아왔을 때 매번 입력창을 클릭해야 하는 불편을 없앤다.
+  // 창이 포커스를 받는 순간 채팅 입력창에 자동으로 캐럿을 위치시킨다.
+  useEffect(() => {
+    if (!onboardingComplete) return;
+    const handleWindowFocus = () => {
+      // 사용자가 다른 input(예: 호버 패널 내부)에 의도적으로 포커스 둔 상태라면 빼앗지 않는다.
+      const active = document.activeElement;
+      if (
+        active &&
+        active !== document.body &&
+        (active.tagName === 'INPUT' ||
+          active.tagName === 'TEXTAREA' ||
+          active.tagName === 'SELECT' ||
+          (active as HTMLElement).isContentEditable)
+      ) {
+        return;
+      }
+      inputRef.current?.focus();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+    // 첫 마운트(=온보딩 막 끝났거나 자동 로그인)에서도 즉시 캐럿 배치.
+    handleWindowFocus();
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  }, [onboardingComplete]);
+
+  // 캐릭터 창이 뜨면 한 번 GET /auth/me 로 서버의 최신 프로필을 끌어와서
+  // 영속된 토큰이 살아 있는지 확인하면서 auth/user-profile store를 동기화한다.
+  // 401이 떨어지면 http 인터셉터가 refresh → 실패 시 store 비우기까지 처리해 준다.
+  useEffect(() => {
+    if (meSyncedRef.current) return;
+    meSyncedRef.current = true;
+    fetchMe()
+      .then(({ user, raw }) => {
+        setUser(user);
+        const currentProfile = useUserProfileStore.getState().profile;
+        if (currentProfile) {
+          updateProfile({
+            name: raw.name,
+            workStartTime: raw.workStartTime,
+            lunchTime: raw.lunchTime,
+            workEndTime: raw.workEndTime,
+            hobby: hobbyToPersona(raw.hobby),
+            allergies: raw.allergies ?? '',
+          });
+        }
+      })
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn('[mallang] /auth/me sync failed', error);
+        }
+      })
+      .finally(() => {
+        // 프로필이 준비된 직후 메인 프로세스 스케줄러에 시간 설정을 전달해 둔다.
+        void syncSchedulerFromStores();
+      });
+    // 마운트 한 번만 실행. profile/store 핸들은 effect 안에서 최신 값을 참조해도 무방.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 메인 프로세스 스케줄러가 도래한 intent 신호를 보내오면, 같은 intent로 LLM을 호출하고
+  // 응답을 말풍선 + 데스크탑 배너에 동시에 띄운다.
+  useEffect(() => {
+    if (!onboardingComplete) return;
+    if (!window.mallang) return;
+    const unsubscribe = window.mallang.scheduler.onIntentFired(
+      (payload: SchedulerIntentFiredPayload) => {
+        const intent = payload.intent;
+        const content = INTENT_USER_MESSAGE[intent];
+        setBubble('…');
+        chatMutation.mutate({
+          content,
+          intent,
+          notification: { title: INTENT_NOTIFICATION_TITLE[intent] },
+        });
+      },
+    );
+    return unsubscribe;
+    // chatMutation은 매 렌더마다 새 객체이지만 mutate 함수만 사용하므로 의존성에서 제외.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboardingComplete]);
+
   const handleClick = () => {
     setBubble(pickClickMessage(state));
   };
 
   const sendPrompt = () => {
     const value = prompt.trim();
-    if (!value) return;
-    // TODO: 백엔드로 채팅 메시지 전송 + 페르소나 응답 수신
-    setBubble(pickReply());
+    if (!value || chatMutation.isPending) return;
     setPrompt('');
+    setBubble('…');
+    chatMutation.mutate({ content: value });
   };
 
   const handlePromptKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -323,16 +510,21 @@ export function MallangOverlayPage() {
     window.mallang?.window.openGroup();
   };
 
+  // 온보딩 중에는 취미가 확정되지 않았을 수 있으므로 배경 이미지를 깔지 않는다.
+  const backgroundUrl = onboardingComplete
+    ? (PERSONA_BACKGROUND[effectivePersona] ?? null)
+    : null;
+
   if (!onboardingComplete) {
     return (
-      <Overlay>
+      <Overlay $bgUrl={null}>
         <OnboardingFlow />
       </Overlay>
     );
   }
 
   return (
-    <Overlay>
+    <Overlay $bgUrl={backgroundUrl}>
       <SideHoverZone
         type="button"
         $side="left"
@@ -393,6 +585,7 @@ export function MallangOverlayPage() {
         }}
       >
         <PromptInput
+          ref={inputRef}
           value={prompt}
           onChange={(event) =>
             setPrompt(event.target.value.slice(0, MAX_PROMPT_LENGTH))
@@ -400,8 +593,13 @@ export function MallangOverlayPage() {
           onKeyDown={handlePromptKeyDown}
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={() => setIsComposing(false)}
-          placeholder="말 걸어봐 (30자 이내)"
+          placeholder={
+            chatMutation.isPending
+              ? '말랑이가 생각 중… (다음 말 미리 써둬도 돼)'
+              : '말 걸어봐 (30자 이내)'
+          }
           maxLength={MAX_PROMPT_LENGTH}
+          autoFocus
           aria-label="말랑이에게 보낼 메시지"
         />
         <MicButton

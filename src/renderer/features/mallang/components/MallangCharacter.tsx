@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion';
+import Lottie from 'lottie-react';
 import styled, { css } from 'styled-components';
 import type {
   MallangPersona,
   MallangState,
 } from '../../../../shared/types/domain';
+import joyAnimation from '../../../assets/animations/joy.json';
 import mallangNeutral from '../../../assets/mallang/neutral.png';
 
 interface Props {
@@ -58,6 +60,32 @@ const Image = styled(motion.img)<{ $filter: string }>`
   `}
 `;
 
+/**
+ * happy 상태일 때 띄우는 Lottie 컨테이너.
+ * Lottie 자체가 자체 모션을 갖고 있으니 framer-motion 부유 모션은 입히지 않고,
+ * persona별 색감 필터만 살려 캐릭터의 톤을 유지한다.
+ */
+const LottieBox = styled.div<{ $filter: string }>`
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  pointer-events: none; /* 클릭은 Wrapper가 가로챈다. */
+  ${({ $filter }) => css`
+    filter: ${$filter || 'none'};
+  `}
+
+  & > div {
+    width: 100%;
+    height: 100%;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+`;
+
 export function MallangCharacter({
   state,
   persona = 'rest',
@@ -71,23 +99,32 @@ export function MallangCharacter({
 
   return (
     <Wrapper $size={size} onClick={onClick}>
-      <Image
-        $filter={combinedFilter}
-        src={mallangNeutral}
-        alt="말랑이"
-        draggable={false}
-        animate={{
-          y: motionConfig.yRange,
-          rotate: motionConfig.rotate,
-        }}
-        transition={{
-          duration: motionConfig.duration,
-          repeat: Infinity,
-          repeatType: 'mirror',
-          ease: 'easeInOut',
-        }}
-        whileTap={{ scale: 0.94 }}
-      />
+      {state === 'happy' ? (
+        <LottieBox
+          $filter={personaFilter[persona] ?? ''}
+          aria-label="말랑이 (기쁨)"
+        >
+          <Lottie animationData={joyAnimation} loop autoplay />
+        </LottieBox>
+      ) : (
+        <Image
+          $filter={combinedFilter}
+          src={mallangNeutral}
+          alt="말랑이"
+          draggable={false}
+          animate={{
+            y: motionConfig.yRange,
+            rotate: motionConfig.rotate,
+          }}
+          transition={{
+            duration: motionConfig.duration,
+            repeat: Infinity,
+            repeatType: 'mirror',
+            ease: 'easeInOut',
+          }}
+          whileTap={{ scale: 0.94 }}
+        />
+      )}
     </Wrapper>
   );
 }
