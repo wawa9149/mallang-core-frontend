@@ -3,10 +3,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { AuthError, signup } from '../../shared/api/auth-api';
+import { useAuthStore } from '../../shared/stores/auth-store';
 import { AuthLayout } from './components/AuthLayout';
 import { Field } from './components/Field';
 import { PrimaryButton, TextLink } from './components/PrimaryButton';
-import { AuthError, mockSignup } from './mock-auth';
 import { signupSchema, type SignupInput } from './schemas';
 
 const REDIRECT_DELAY_MS = 1400;
@@ -91,9 +92,11 @@ export function SignupPage() {
   const onSubmit = handleSubmit(async (values) => {
     clearErrors();
     try {
-      // TODO: POST /auth/signup 으로 교체
-      const result = await mockSignup(values.email, values.password);
-      setSignedUpEmail(result.email);
+      const result = await signup(values.email, values.password);
+      // signup 시점에 백엔드가 토큰을 함께 주지만, 우리는 명시적 로그인 UX를 유지하기 위해
+      // 세션을 한 번 비워서 사용자가 다시 비밀번호로 로그인하게 만든다.
+      useAuthStore.getState().signOut();
+      setSignedUpEmail(result.user.email);
     } catch (error) {
       const message =
         error instanceof AuthError

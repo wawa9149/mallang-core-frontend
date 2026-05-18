@@ -34,7 +34,7 @@ const CharacterArea = styled.div`
 
 const Bubble = styled(motion.div)`
   position: absolute;
-  top: 0;
+  top: 20px;
   left: 16px;
   max-width: calc(100% - 96px);
   padding: 14px 20px;

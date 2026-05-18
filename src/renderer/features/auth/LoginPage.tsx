@@ -3,12 +3,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { useAuthStore } from '../../shared/stores/auth-store';
+import { AuthError, login } from '../../shared/api/auth-api';
 import { transitionToMallangWindow } from '../../shared/window/transition-to-mallang';
 import { AuthLayout } from './components/AuthLayout';
 import { Field } from './components/Field';
 import { PrimaryButton, TextLink } from './components/PrimaryButton';
-import { AuthError, mockLogin } from './mock-auth';
 import { loginSchema, type LoginInput } from './schemas';
 
 interface LoginLocationState {
@@ -52,7 +51,6 @@ const SuccessAlert = styled.p`
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const setUser = useAuthStore((state) => state.setUser);
   const signedUpEmail =
     (location.state as LoginLocationState | null)?.signedUpEmail ?? null;
   const [signupNotice, setSignupNotice] = useState<string | null>(
@@ -82,22 +80,8 @@ export function LoginPage() {
     clearErrors();
     setSignupNotice(null);
     try {
-      // TODO: POST /auth/login 으로 교체
-      const result = await mockLogin(values.email, values.password);
-      const now = new Date().toISOString();
-      setUser({
-        id: 'mock-user',
-        name: result.email.split('@')[0] ?? '말랑이',
-        email: result.email,
-        companyId: null,
-        groupId: null,
-        workStartTime: '10:00',
-        lunchTime: '12:30',
-        workEndTime: '18:00',
-        averageOvertimeCount: 0,
-        createdAt: result.createdAt,
-        updatedAt: now,
-      });
+      // auth-api.login이 응답 받은 user/토큰을 useAuthStore에 채워 준다.
+      await login(values.email, values.password);
       await transitionToMallangWindow();
     } catch (error) {
       const message =
