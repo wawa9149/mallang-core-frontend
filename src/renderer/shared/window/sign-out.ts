@@ -1,7 +1,8 @@
+import { useOnboardingStore } from '../../features/onboarding/onboarding-store';
+import { clearScheduler } from '../scheduler/sync';
 import { useAuthStore } from '../stores/auth-store';
 import { useMallangStore } from '../stores/mallang-store';
 import { useUserProfileStore } from '../stores/user-profile-store';
-import { useOnboardingStore } from '../../features/onboarding/onboarding-store';
 
 /**
  * 로그아웃 시 영속/메모리 store를 모두 비우고 로그인 창으로 복귀한다.
@@ -26,9 +27,12 @@ export async function signOutAndReturnToLogin(): Promise<void> {
     recentBubble: null,
     isOnboarded: false,
   });
+  // 메인 프로세스에 떠 있던 사용자 시간 설정과 발사 기록도 함께 비운다.
+  await clearScheduler();
 
   await bridge.openMain('/login');
   await bridge.closeMyPage().catch(() => undefined);
   await bridge.closeGroup().catch(() => undefined);
+  await bridge.closeLunchVote().catch(() => undefined);
   await bridge.closeMallang().catch(() => undefined);
 }
