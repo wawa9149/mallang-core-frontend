@@ -57,7 +57,8 @@ const Overlay = styled.div`
 
 const SideHoverZone = styled.button<{ $side: 'left' | 'right' }>`
   position: absolute;
-  top: 0;
+  /* 상단 Controls 바(top 8px + IconButton 24px)와 겹치지 않도록 그 아래에서 시작한다. */
+  top: 40px;
   /* 채팅 입력(PromptRow 44px + Overlay padding-bottom 20px + gap 16px)을 침범하지 않도록 비워둔다. */
   bottom: calc(44px + 20px + 16px);
   width: 64px;
