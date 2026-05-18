@@ -165,8 +165,8 @@ const Bubble = styled(motion.div)`
     width: 18px;
     height: 14px;
     background: inherit;
-    /* 말풍선 우측 하단에서 좌하단(=캐릭터 머리 쪽)을 가리키는 꼬리 */
-    clip-path: polygon(0 0, 100% 0, 30% 100%);
+    /* 꼬리 끝이 우측 하단을 가리키도록 폴리곤의 하단 꼭짓점을 오른쪽(70%)으로 둔다. */
+    clip-path: polygon(0 0, 100% 0, 70% 100%);
   }
 `;
 
