@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuthStore } from '../../shared/stores/auth-store';
+import { transitionToMallangWindow } from '../../shared/window/transition-to-mallang';
 import { AuthLayout } from './components/AuthLayout';
 import { Field } from './components/Field';
 import { PrimaryButton, TextLink } from './components/PrimaryButton';
@@ -66,14 +67,14 @@ export function SignupPage() {
         createdAt: result.createdAt,
         updatedAt: now,
       });
-      await window.mallang?.window.openMallang();
-      // 메인 창은 닫고 캐릭터 창에서 온보딩 채팅을 이어간다.
-      await window.mallang?.window.closeMain();
+      await transitionToMallangWindow();
     } catch (error) {
       const message =
         error instanceof AuthError
           ? error.message
-          : '계정 생성 중 알 수 없는 오류가 발생했어.';
+          : error instanceof Error
+            ? error.message
+            : '계정 생성 중 알 수 없는 오류가 발생했어.';
       setError('root', { type: 'server', message });
     }
   });
