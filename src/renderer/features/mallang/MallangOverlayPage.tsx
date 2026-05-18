@@ -142,8 +142,8 @@ const CharacterArea = styled.div`
 const Bubble = styled(motion.div)`
   position: absolute;
   top: 0;
-  left: 0;
-  max-width: calc(100% - 24px);
+  left: 16px;
+  max-width: calc(100% - 96px);
   padding: 14px 20px;
   background: ${({ theme }) => theme.brand.bubble};
   color: ${({ theme }) => theme.brand.bubbleText};
