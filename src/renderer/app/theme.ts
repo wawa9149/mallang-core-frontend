@@ -62,6 +62,7 @@ export const appTheme = {
     primary: '#7A5CFF',
     primarySoft: 'rgba(122, 92, 255, 0.12)',
     danger: '#E5484D',
+    dangerSurface: 'rgba(229, 72, 77, 0.12)',
     success: '#3DB37B',
   },
   brand: {
