@@ -68,14 +68,21 @@ const SideHoverZone = styled.button<{ $side: 'left' | 'right' }>`
   opacity: 0;
   transition:
     background-color 180ms ease,
-    opacity 180ms ease;
+    opacity 180ms ease,
+    backdrop-filter 180ms ease;
   cursor: pointer;
   z-index: 5;
 
   &:hover,
   &:focus-visible {
     opacity: 1;
-    background: ${({ theme }) => theme.brand.bubble};
+    /* 캐릭터가 살짝 비쳐 보이도록 bubble 색을 50% 알파로 깐다. */
+    background: color-mix(
+      in srgb,
+      ${({ theme }) => theme.brand.bubble} 50%,
+      transparent
+    );
+    backdrop-filter: blur(2px);
   }
 
   svg {
