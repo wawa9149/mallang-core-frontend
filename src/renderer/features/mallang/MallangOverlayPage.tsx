@@ -4,7 +4,6 @@ import styled from 'styled-components';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMallangStore } from '../../shared/stores/mallang-store';
 import { useUserProfileStore } from '../../shared/stores/user-profile-store';
-import type { MallangState } from '../../../shared/types/domain';
 import { OnboardingFlow } from '../onboarding/OnboardingFlow';
 import { MallangCharacter } from './components/MallangCharacter';
 import { pickClickMessage } from './data/click-messages';
@@ -27,14 +26,6 @@ const PROMPT_REPLIES = [
 function pickReply() {
   return PROMPT_REPLIES[Math.floor(Math.random() * PROMPT_REPLIES.length)];
 }
-
-const STATE_CYCLE: MallangState[] = [
-  'neutral',
-  'happy',
-  'sad',
-  'angry',
-  'tired',
-];
 
 const Overlay = styled.div`
   width: 100vw;
@@ -285,12 +276,11 @@ function MicIcon() {
 }
 
 export function MallangOverlayPage() {
-  const { state, persona, recentBubble, isOnboarded, setState, setBubble } =
+  const { state, persona, recentBubble, isOnboarded, setBubble } =
     useMallangStore();
   const profile = useUserProfileStore((s) => s.profile);
   const onboardingComplete = isOnboarded || profile !== null;
   const effectivePersona = profile?.hobby ?? persona;
-  const [stateIndex, setStateIndex] = useState(0);
   const [prompt, setPrompt] = useState('');
   const [isComposing, setIsComposing] = useState(false);
 
@@ -302,17 +292,6 @@ export function MallangOverlayPage() {
 
   const handleClick = () => {
     setBubble(pickClickMessage(state));
-  };
-
-  const handleCycleState = () => {
-    const next = (stateIndex + 1) % STATE_CYCLE.length;
-    setStateIndex(next);
-    setState(STATE_CYCLE[next]);
-    setBubble(null);
-  };
-
-  const handleOpenSettings = () => {
-    window.mallang?.window.openMain('/settings');
   };
 
   const sendPrompt = () => {
@@ -375,12 +354,6 @@ export function MallangOverlayPage() {
       </SideHoverZone>
 
       <Controls data-no-drag>
-        <IconButton onClick={handleCycleState} title="상태 전환(데모)">
-          ◆
-        </IconButton>
-        <IconButton onClick={handleOpenSettings} title="설정 열기">
-          ⚙
-        </IconButton>
         <IconButton
           onClick={() => window.mallang?.window.closeMallang()}
           title="닫기"
