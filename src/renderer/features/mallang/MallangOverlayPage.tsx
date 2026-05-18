@@ -146,7 +146,7 @@ const PromptInput = styled.input`
   }
 `;
 
-const SendButton = styled.button`
+const MicButton = styled.button`
   width: 44px;
   height: 44px;
   flex-shrink: 0;
@@ -155,8 +155,6 @@ const SendButton = styled.button`
   color: ${({ theme }) => theme.brand.promptText};
   display: grid;
   place-items: center;
-  font-size: 15px;
-  font-weight: 700;
   transition:
     background-color 160ms ease,
     transform 120ms ease;
@@ -173,7 +171,31 @@ const SendButton = styled.button`
     opacity: 0.55;
     cursor: not-allowed;
   }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
 `;
+
+function MicIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="9" y="3" width="6" height="12" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <line x1="12" y1="18" x2="12" y2="22" />
+      <line x1="8" y1="22" x2="16" y2="22" />
+    </svg>
+  );
+}
 
 export function MallangOverlayPage() {
   const { state, persona, recentBubble, isOnboarded, setState, setBubble } =
@@ -216,6 +238,11 @@ export function MallangOverlayPage() {
       event.preventDefault();
       sendPrompt();
     }
+  };
+
+  const handleMicClick = () => {
+    // TODO: 음성 입력(녹음→텍스트) 연결
+    setBubble('음성 입력은 곧 만들 거야!');
   };
 
   if (!isOnboarded) {
@@ -284,13 +311,14 @@ export function MallangOverlayPage() {
           maxLength={MAX_PROMPT_LENGTH}
           aria-label="말랑이에게 보낼 메시지"
         />
-        <SendButton
-          type="submit"
-          disabled={!prompt.trim()}
-          aria-label="메시지 보내기"
+        <MicButton
+          type="button"
+          onClick={handleMicClick}
+          aria-label="음성으로 말 걸기"
+          title="음성 입력 (곧 추가될 예정)"
         >
-          ↑
-        </SendButton>
+          <MicIcon />
+        </MicButton>
       </PromptRow>
     </Overlay>
   );
