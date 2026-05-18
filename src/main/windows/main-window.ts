@@ -8,7 +8,7 @@ export function getMainWindow() {
   return mainWindow;
 }
 
-export function createMainWindow(initialRoute = '/login') {
+export function createMainWindow(initialRoute = '/') {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.focus();
     return mainWindow;

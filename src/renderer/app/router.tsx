@@ -1,4 +1,4 @@
-import { createHashRouter, Navigate, RouterProvider } from 'react-router-dom';
+import { createHashRouter, RouterProvider } from 'react-router-dom';
 import { LoginPage } from '../features/auth/LoginPage';
 import { SignupPage } from '../features/auth/SignupPage';
 import { EmotionReportPage } from '../features/emotion/EmotionReportPage';
@@ -8,9 +8,10 @@ import { MallangOverlayPage } from '../features/mallang/MallangOverlayPage';
 import { MyPagePage } from '../features/mypage/MyPagePage';
 import { OnboardingPage } from '../features/onboarding/OnboardingPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
+import { AuthGuard } from './AuthGuard';
 
 const router = createHashRouter([
-  { path: '/', element: <Navigate to="/login" replace /> },
+  { path: '/', element: <AuthGuard /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/signup', element: <SignupPage /> },
   { path: '/mallang', element: <MallangOverlayPage /> },

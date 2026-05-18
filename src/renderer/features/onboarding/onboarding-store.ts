@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { MallangPersona } from '../../../shared/types/domain';
 
 /**
@@ -33,11 +34,19 @@ interface OnboardingStoreState {
   reset: () => void;
 }
 
-export const useOnboardingStore = create<OnboardingStoreState>((set) => ({
-  stepIndex: 0,
-  answers: INITIAL_ANSWERS,
-  updateAnswers: (patch) =>
-    set((prev) => ({ answers: { ...prev.answers, ...patch } })),
-  next: () => set((prev) => ({ stepIndex: prev.stepIndex + 1 })),
-  reset: () => set({ stepIndex: 0, answers: INITIAL_ANSWERS }),
-}));
+export const useOnboardingStore = create<OnboardingStoreState>()(
+  persist(
+    (set) => ({
+      stepIndex: 0,
+      answers: INITIAL_ANSWERS,
+      updateAnswers: (patch) =>
+        set((prev) => ({ answers: { ...prev.answers, ...patch } })),
+      next: () => set((prev) => ({ stepIndex: prev.stepIndex + 1 })),
+      reset: () => set({ stepIndex: 0, answers: INITIAL_ANSWERS }),
+    }),
+    {
+      name: 'mallang.onboarding',
+      storage: createJSONStorage(() => window.localStorage),
+    },
+  ),
+);
