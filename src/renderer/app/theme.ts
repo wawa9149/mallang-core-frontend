@@ -64,6 +64,7 @@ export const appTheme = {
     danger: '#E5484D',
     dangerSurface: 'rgba(229, 72, 77, 0.12)',
     success: '#3DB37B',
+    successSurface: 'rgba(61, 179, 123, 0.14)',
   },
   brand: {
     background: '#F2ECE8',

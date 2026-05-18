@@ -1,14 +1,15 @@
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { useAuthStore } from '../../shared/stores/auth-store';
-import { transitionToMallangWindow } from '../../shared/window/transition-to-mallang';
 import { AuthLayout } from './components/AuthLayout';
 import { Field } from './components/Field';
 import { PrimaryButton, TextLink } from './components/PrimaryButton';
 import { AuthError, mockSignup } from './mock-auth';
 import { signupSchema, type SignupInput } from './schemas';
+
+const REDIRECT_DELAY_MS = 1400;
 
 const Form = styled.form`
   display: flex;
@@ -33,9 +34,40 @@ const FormAlert = styled.p`
   text-align: center;
 `;
 
+const Success = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 16px 16px;
+  text-align: center;
+`;
+
+const SuccessTitle = styled.h2`
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.brand.title};
+`;
+
+const SuccessDescription = styled.p`
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: ${({ theme }) => theme.brand.subtitle};
+`;
+
+const SuccessHint = styled.p`
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: ${({ theme }) => theme.brand.subtitle};
+`;
+
 export function SignupPage() {
   const navigate = useNavigate();
-  const setUser = useAuthStore((state) => state.setUser);
+  const [signedUpEmail, setSignedUpEmail] = useState<string | null>(null);
 
   const {
     register,
@@ -48,26 +80,20 @@ export function SignupPage() {
     defaultValues: { email: '', password: '', passwordConfirm: '' },
   });
 
+  useEffect(() => {
+    if (!signedUpEmail) return;
+    const timer = window.setTimeout(() => {
+      navigate('/login', { state: { signedUpEmail } });
+    }, REDIRECT_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [signedUpEmail, navigate]);
+
   const onSubmit = handleSubmit(async (values) => {
     clearErrors();
     try {
-      // TODO: POST /auth/signup 으로 교체 (가입 후 자동 로그인)
+      // TODO: POST /auth/signup 으로 교체
       const result = await mockSignup(values.email, values.password);
-      const now = new Date().toISOString();
-      setUser({
-        id: 'mock-user',
-        name: result.email.split('@')[0] ?? '말랑이',
-        email: result.email,
-        companyId: null,
-        groupId: null,
-        workStartTime: '10:00',
-        lunchTime: '12:30',
-        workEndTime: '18:00',
-        averageOvertimeCount: 0,
-        createdAt: result.createdAt,
-        updatedAt: now,
-      });
-      await transitionToMallangWindow();
+      setSignedUpEmail(result.email);
     } catch (error) {
       const message =
         error instanceof AuthError
@@ -78,6 +104,27 @@ export function SignupPage() {
       setError('root', { type: 'server', message });
     }
   });
+
+  if (signedUpEmail) {
+    return (
+      <AuthLayout subtitle="오늘도 말랑한 회사 생활을 위한" title="말랑코어">
+        <Success>
+          <SuccessTitle>가입이 완료됐어!</SuccessTitle>
+          <SuccessDescription>
+            {signedUpEmail}
+            <br />이 이메일로 로그인하면 말랑이를 만날 수 있어.
+          </SuccessDescription>
+          <SuccessHint>잠시 후 로그인 화면으로 이동할게…</SuccessHint>
+          <PrimaryButton
+            type="button"
+            onClick={() => navigate('/login', { state: { signedUpEmail } })}
+          >
+            지금 로그인하러 가기
+          </PrimaryButton>
+        </Success>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout subtitle="오늘도 말랑한 회사 생활을 위한" title="말랑코어">
