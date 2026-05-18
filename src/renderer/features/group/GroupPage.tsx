@@ -1,6 +1,9 @@
 import styled from 'styled-components';
+import { CloseButton } from '../../shared/components/CloseButton';
+import { useEscapeToClose } from '../../shared/hooks/useEscapeToClose';
 
 const Page = styled.div`
+  position: relative;
   width: 100%;
   height: 100%;
   background: ${({ theme }) => theme.brand.background};
@@ -30,8 +33,17 @@ const Description = styled.p`
 `;
 
 export function GroupPage() {
+  const handleClose = () => {
+    window.mallang?.window.closeGroup().catch((error) => {
+      console.error('[group] close failed', error);
+    });
+  };
+
+  useEscapeToClose(handleClose);
+
   return (
     <Page>
+      <CloseButton onClick={handleClose} />
       <Title>그룹 말랑이</Title>
       <Description>
         팀원들의 말랑이가 모이는 공간을

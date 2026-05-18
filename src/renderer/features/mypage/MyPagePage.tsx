@@ -5,10 +5,13 @@ import {
   type MallangPersona,
   type UserProfile,
 } from '../../../shared/types/domain';
+import { CloseButton } from '../../shared/components/CloseButton';
+import { useEscapeToClose } from '../../shared/hooks/useEscapeToClose';
 import { useUserProfileStore } from '../../shared/stores/user-profile-store';
 import { signOutAndReturnToLogin } from '../../shared/window/sign-out';
 
 const Page = styled.div`
+  position: relative;
   width: 100%;
   height: 100%;
   background: ${({ theme }) => theme.brand.background};
@@ -184,8 +187,17 @@ export function MyPagePage() {
     });
   };
 
+  const handleClose = () => {
+    window.mallang?.window.closeMyPage().catch((error) => {
+      console.error('[mypage] close failed', error);
+    });
+  };
+
+  useEscapeToClose(handleClose);
+
   return (
     <Page>
+      <CloseButton onClick={handleClose} />
       <Title>마이페이지</Title>
       <Form onSubmit={handleSubmit}>
         <FieldLabel>
