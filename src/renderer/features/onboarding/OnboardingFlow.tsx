@@ -52,7 +52,8 @@ const Bubble = styled(motion.div)`
     content: '';
     position: absolute;
     bottom: -8px;
-    right: 64px;
+    /* 말풍선 너비가 변해도 꼬리 위치가 흔들리지 않도록 좌측 기준으로 고정한다. */
+    left: 24px;
     width: 18px;
     height: 14px;
     background: inherit;
