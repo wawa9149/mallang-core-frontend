@@ -1,6 +1,10 @@
 import { app, BrowserWindow } from 'electron';
 import started from 'electron-squirrel-startup';
 import { registerIpcHandlers } from './ipc';
+import {
+  startIntentScheduler,
+  stopIntentScheduler,
+} from './scheduler/intent-scheduler';
 import { createMainWindow } from './windows/main-window';
 
 if (started) {
@@ -9,6 +13,7 @@ if (started) {
 
 app.whenReady().then(() => {
   registerIpcHandlers();
+  startIntentScheduler();
   // 캐릭터 창은 로그인/회원가입이 완료된 뒤 렌더러에서 IPC로 요청해 띄운다.
   createMainWindow();
 
@@ -23,4 +28,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  stopIntentScheduler();
 });
