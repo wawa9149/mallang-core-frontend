@@ -9,6 +9,7 @@ const mallangBridge = {
   window: {
     openMain: (route?: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.WINDOW.OPEN_MAIN, route),
+    closeMain: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.CLOSE_MAIN),
     openMallang: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.OPEN_MALLANG),
     closeMallang: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.CLOSE_MALLANG),
     minimize: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.MINIMIZE),

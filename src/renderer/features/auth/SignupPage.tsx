@@ -51,7 +51,8 @@ export function SignupPage() {
       updatedAt: now,
     });
     await window.mallang?.window.openMallang();
-    navigate('/onboarding', { replace: true });
+    // 메인 창은 닫고 캐릭터 창에서 온보딩 채팅을 이어간다.
+    await window.mallang?.window.closeMain();
   });
 
   return (

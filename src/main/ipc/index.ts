@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc/channels';
-import { createMainWindow } from '../windows/main-window';
+import { createMainWindow, getMainWindow } from '../windows/main-window';
 import {
   createMallangWindow,
   getMallangWindow,
@@ -15,6 +15,10 @@ export function registerIpcHandlers() {
 
   ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_MAIN, (_event, route?: string) => {
     createMainWindow(route);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW.CLOSE_MAIN, () => {
+    getMainWindow()?.close();
   });
 
   ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_MALLANG, () => {

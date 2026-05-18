@@ -5,6 +5,7 @@
 export const IPC_CHANNELS = {
   WINDOW: {
     OPEN_MAIN: 'window:open-main',
+    CLOSE_MAIN: 'window:close-main',
     OPEN_MALLANG: 'window:open-mallang',
     CLOSE_MALLANG: 'window:close-mallang',
     MINIMIZE: 'window:minimize',
