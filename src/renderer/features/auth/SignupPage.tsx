@@ -50,6 +50,7 @@ export function SignupPage() {
       createdAt: now,
       updatedAt: now,
     });
+    await window.mallang?.window.openMallang();
     navigate('/onboarding', { replace: true });
   });
 
