@@ -16,6 +16,14 @@ export const MALLANG_STATE_LABEL: Record<MallangState, string> = {
   tired: '지침',
 };
 
+export type MallangPersona = 'rest' | 'workout' | 'self-development';
+
+export const MALLANG_PERSONA_LABEL: Record<MallangPersona, string> = {
+  rest: '휴식',
+  workout: '운동',
+  'self-development': '자기개발',
+};
+
 export type EmotionSource =
   | 'morning_check'
   | 'daily_closing'

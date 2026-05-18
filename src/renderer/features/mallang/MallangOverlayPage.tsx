@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMallangStore } from '../../shared/stores/mallang-store';
 import type { MallangState } from '../../../shared/types/domain';
+import { OnboardingFlow } from '../onboarding/OnboardingFlow';
 import { MallangCharacter } from './components/MallangCharacter';
 import { pickClickMessage } from './data/click-messages';
 
@@ -175,7 +176,8 @@ const SendButton = styled.button`
 `;
 
 export function MallangOverlayPage() {
-  const { state, recentBubble, setState, setBubble } = useMallangStore();
+  const { state, persona, recentBubble, isOnboarded, setState, setBubble } =
+    useMallangStore();
   const [stateIndex, setStateIndex] = useState(0);
   const [prompt, setPrompt] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -216,6 +218,14 @@ export function MallangOverlayPage() {
     }
   };
 
+  if (!isOnboarded) {
+    return (
+      <Overlay>
+        <OnboardingFlow />
+      </Overlay>
+    );
+  }
+
   return (
     <Overlay>
       <Controls data-no-drag>
@@ -247,7 +257,12 @@ export function MallangOverlayPage() {
             </Bubble>
           )}
         </AnimatePresence>
-        <MallangCharacter state={state} size={220} onClick={handleClick} />
+        <MallangCharacter
+          state={state}
+          persona={persona}
+          size={220}
+          onClick={handleClick}
+        />
       </CharacterArea>
 
       <PromptRow

@@ -1,20 +1,30 @@
 import { motion } from 'framer-motion';
 import styled, { css } from 'styled-components';
-import type { MallangState } from '../../../../shared/types/domain';
+import type {
+  MallangPersona,
+  MallangState,
+} from '../../../../shared/types/domain';
 import mallangNeutral from '../../../assets/mallang/neutral.png';
 
 interface Props {
   state: MallangState;
+  persona?: MallangPersona;
   size?: number;
   onClick?: () => void;
 }
 
 const stateFilter: Record<MallangState, string> = {
-  neutral: 'none',
+  neutral: '',
   happy: 'brightness(1.05) saturate(1.15) hue-rotate(-8deg)',
   sad: 'brightness(0.92) saturate(0.7) hue-rotate(18deg)',
   angry: 'brightness(0.98) saturate(1.4) hue-rotate(-26deg)',
   tired: 'brightness(0.88) saturate(0.75) hue-rotate(12deg)',
+};
+
+const personaFilter: Record<MallangPersona, string> = {
+  rest: '',
+  workout: 'saturate(1.2) hue-rotate(-14deg) brightness(1.02)',
+  'self-development': 'saturate(0.95) hue-rotate(28deg) brightness(0.98)',
 };
 
 const stateMotion: Record<
@@ -37,24 +47,32 @@ const Wrapper = styled.div<{ $size: number }>`
   cursor: pointer;
 `;
 
-const Image = styled(motion.img)<{ $state: MallangState }>`
+const Image = styled(motion.img)<{ $filter: string }>`
   width: 100%;
   height: 100%;
   object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;
-  ${({ $state }) => css`
-    filter: ${stateFilter[$state]};
+  ${({ $filter }) => css`
+    filter: ${$filter || 'none'};
   `}
 `;
 
-export function MallangCharacter({ state, size = 220, onClick }: Props) {
+export function MallangCharacter({
+  state,
+  persona = 'rest',
+  size = 220,
+  onClick,
+}: Props) {
   const motionConfig = stateMotion[state];
+  const combinedFilter = [stateFilter[state], personaFilter[persona]]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <Wrapper $size={size} onClick={onClick}>
       <Image
-        $state={state}
+        $filter={combinedFilter}
         src={mallangNeutral}
         alt="말랑이"
         draggable={false}
