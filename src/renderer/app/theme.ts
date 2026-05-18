@@ -51,7 +51,57 @@ export const mallangStateTheme: Record<
   },
 };
 
-export const appTheme = {
+export interface AppTheme {
+  colors: {
+    bg: string;
+    surface: string;
+    surfaceMuted: string;
+    border: string;
+    text: string;
+    textMuted: string;
+    primary: string;
+    primarySoft: string;
+    danger: string;
+    dangerSurface: string;
+    success: string;
+    successSurface: string;
+  };
+  brand: {
+    background: string;
+    primary: string;
+    primaryHover: string;
+    title: string;
+    subtitle: string;
+    inputBg: string;
+    inputText: string;
+    inputPlaceholder: string;
+    inputBorder: string;
+    inputBorderFocus: string;
+    link: string;
+    bubble: string;
+    bubbleText: string;
+    promptBg: string;
+    promptText: string;
+    promptPlaceholder: string;
+  };
+  radii: {
+    sm: string;
+    md: string;
+    lg: string;
+    pill: string;
+  };
+  spacing: (n: number) => string;
+  shadows: {
+    card: string;
+    floating: string;
+  };
+  fonts: {
+    body: string;
+  };
+  mallang: typeof mallangStateTheme;
+}
+
+export const appTheme: AppTheme = {
   colors: {
     bg: '#FAFAFC',
     surface: '#FFFFFF',
@@ -99,6 +149,4 @@ export const appTheme = {
     body: `'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`,
   },
   mallang: mallangStateTheme,
-} as const;
-
-export type AppTheme = typeof appTheme;
+};

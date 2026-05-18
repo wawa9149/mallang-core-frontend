@@ -1,8 +1,8 @@
-import type { MallangBridge } from '../preload';
+import type { MallangBridge } from '../preload/preload';
 
 declare global {
   interface Window {
-    mallang: MallangBridge;
+    mallang?: MallangBridge;
   }
 }
 
