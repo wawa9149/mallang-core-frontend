@@ -14,8 +14,8 @@ const Row = styled.form`
 const PillInput = styled.input`
   flex: 1;
   min-width: 0;
-  height: 52px;
-  padding: 0 22px;
+  height: 44px;
+  padding: 0 18px;
   border: none;
   outline: none;
   background: ${({ theme }) => theme.brand.promptBg};
@@ -30,15 +30,15 @@ const PillInput = styled.input`
 `;
 
 const SendButton = styled.button`
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   border-radius: 50%;
   background: ${({ theme }) => theme.brand.promptBg};
   color: ${({ theme }) => theme.brand.promptText};
   display: grid;
   place-items: center;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   transition:
     background-color 160ms ease,
