@@ -93,19 +93,34 @@ const TimeRow = styled.div`
 const TimeInput = styled(Input)`
   text-align: center;
   padding: 0 6px;
+
+  /* Chromium 기본으로 들어가는 시계 picker 아이콘을 숨긴다. */
+  &::-webkit-calendar-picker-indicator {
+    display: none;
+    -webkit-appearance: none;
+  }
 `;
 
-const SaveButton = styled.button`
+const SaveButton = styled.button<{ $saved?: boolean }>`
   height: 48px;
   border-radius: 16px;
-  background: ${({ theme }) => theme.brand.primary};
+  background: ${({ theme, $saved }) =>
+    $saved ? theme.colors.success : theme.brand.primary};
   color: ${({ theme }) => theme.brand.promptText};
   font-size: 14px;
   font-weight: 700;
   -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition:
+    background-color 200ms ease,
+    transform 120ms ease;
 
   &:hover {
-    background: ${({ theme }) => theme.brand.primaryHover};
+    background: ${({ theme, $saved }) =>
+      $saved ? theme.colors.success : theme.brand.primaryHover};
   }
   &:active {
     transform: scale(0.99);
@@ -128,13 +143,6 @@ const SignOutButton = styled.button`
   &:active {
     transform: scale(0.99);
   }
-`;
-
-const Toast = styled.div`
-  font-size: 12px;
-  font-weight: 600;
-  color: ${({ theme }) => theme.colors.success};
-  text-align: center;
 `;
 
 const EMPTY_DRAFT: UserProfile = {
@@ -263,8 +271,31 @@ export function MyPagePage() {
             maxLength={60}
           />
         </FieldLabel>
-        {saved && <Toast>저장했어!</Toast>}
-        <SaveButton type="submit">저장</SaveButton>
+        <SaveButton type="submit" $saved={saved}>
+          {saved ? (
+            <>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden
+              >
+                <path
+                  d="M2.5 7.5L5.5 10.5L11.5 4"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              저장 완료
+            </>
+          ) : (
+            '저장'
+          )}
+        </SaveButton>
         <SignOutButton type="button" onClick={handleSignOut}>
           로그아웃
         </SignOutButton>
