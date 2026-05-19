@@ -574,6 +574,7 @@ export function MallangOverlayPage() {
           persona={effectivePersona}
           size={280}
           isBusy={chatMutation.isPending}
+          isSpeaking={Boolean(recentBubble)}
           onClick={handleClick}
         />
       </CharacterArea>

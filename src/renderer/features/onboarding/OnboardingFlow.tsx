@@ -16,10 +16,10 @@ import { ONBOARDING_STEPS, summarizeAnswers } from './steps';
 const Wrapper = styled.div`
   width: 100%;
   height: 100%;
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: 24px 20px 20px;
-  gap: 16px;
 `;
 
 const CharacterArea = styled.div`
@@ -29,7 +29,24 @@ const CharacterArea = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-bottom: 8px;
+  /* 입력 영역이 절대 위치로 떠 있어서 말랑이는 자기 자리를 그대로 지킨다.
+     말랑이 사이즈(280) + 말풍선 + 하단 입력 겹침을 고려해 가운데를 유지한다. */
+`;
+
+/**
+ * 하단 입력/요약 영역.
+ * absolute 로 띄워서 입력이 늘어나도 말랑이가 위로 밀려나지 않게 한다.
+ * 사용자가 의도적으로 "말랑이를 가려도 OK" 라고 했기 때문에 z-index 로 말랑이 위에 올린다.
+ */
+const BottomArea = styled.div`
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 3;
 `;
 
 const Bubble = styled(motion.div)`
@@ -144,34 +161,36 @@ export function OnboardingFlow() {
             {step.prompt(answers)}
           </Bubble>
         </AnimatePresence>
-        <MallangCharacter state="neutral" persona={persona} size={160} />
+        <MallangCharacter state="neutral" persona={persona} size={280} />
       </CharacterArea>
 
-      {step.type === 'confirm' && (
-        <SummaryCard>{summarizeAnswers(answers)}</SummaryCard>
-      )}
+      <BottomArea>
+        {step.type === 'confirm' && (
+          <SummaryCard>{summarizeAnswers(answers)}</SummaryCard>
+        )}
 
-      {step.type === 'text' && (
-        <TextInput
-          key={step.id}
-          placeholder={step.placeholder}
-          maxLength={step.maxLength}
-          allowEmpty={step.id === 'allergies' ? step.allowEmpty : false}
-          onSubmit={handleTextSubmit}
-        />
-      )}
+        {step.type === 'text' && (
+          <TextInput
+            key={step.id}
+            placeholder={step.placeholder}
+            maxLength={step.maxLength}
+            allowEmpty={step.id === 'allergies' ? step.allowEmpty : false}
+            onSubmit={handleTextSubmit}
+          />
+        )}
 
-      {step.type === 'time-triple' && (
-        <TimeTripleInput onSubmit={handleTimeSubmit} />
-      )}
+        {step.type === 'time-triple' && (
+          <TimeTripleInput onSubmit={handleTimeSubmit} />
+        )}
 
-      {step.type === 'choice' && (
-        <ChoiceInput options={step.options} onSubmit={handleChoiceSubmit} />
-      )}
+        {step.type === 'choice' && (
+          <ChoiceInput options={step.options} onSubmit={handleChoiceSubmit} />
+        )}
 
-      {step.type === 'confirm' && (
-        <ConfirmInput onYes={handleConfirmYes} onNo={handleConfirmNo} />
-      )}
+        {step.type === 'confirm' && (
+          <ConfirmInput onYes={handleConfirmYes} onNo={handleConfirmNo} />
+        )}
+      </BottomArea>
     </Wrapper>
   );
 }
