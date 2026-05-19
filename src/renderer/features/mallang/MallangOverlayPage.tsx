@@ -13,7 +13,7 @@ import bgRest from '../../assets/backgrounds/rest.png';
 import bgSelfDevelopment from '../../assets/backgrounds/self-development.png';
 import bgWorkout from '../../assets/backgrounds/workout.png';
 import { fetchMe } from '../../shared/api/auth-api';
-import { sendChat } from '../../shared/api/chats-api';
+import { sendChat, triggerScheduledPrompt } from '../../shared/api/chats-api';
 import { hobbyToPersona } from '../../shared/api/mappers';
 import type { BackendChatIntent, BackendEmotion } from '../../shared/api/types';
 import { syncSchedulerFromStores } from '../../shared/scheduler/sync';
@@ -23,6 +23,7 @@ import { useUserProfileStore } from '../../shared/stores/user-profile-store';
 import { OnboardingFlow } from '../onboarding/OnboardingFlow';
 import { MallangCharacter } from './components/MallangCharacter';
 import { pickClickMessage } from './data/click-messages';
+import { pickGreeting } from './data/greetings';
 
 /**
  * 사용자의 취미(hobby)에 따라 말랑이 창 뒤에 깔리는 배경.
@@ -35,6 +36,14 @@ const PERSONA_BACKGROUND: Record<MallangPersona, string> = {
 };
 
 const MAX_PROMPT_LENGTH = 30;
+
+/**
+ * 스케줄러 first-turn 질문에 대한 follow-up 라우팅 유효 시간(ms).
+ * - 말랑이가 "출근했어?"를 던졌는데 사용자가 30분이 지나도록 답을 안 하면,
+ *   그 한참 뒤의 발화가 morning_check 처럼 라우팅되지 않도록 만료시킨다.
+ * - 시스템 슬립/복구를 견디기 위해 setTimeout 이 아니라 절대 시각(Date.now() 비교) 으로 관리한다.
+ */
+const PENDING_FOLLOWUP_TTL_MS = 30 * 60 * 1000;
 
 // 백엔드 Emotion enum과 프론트 MallangState가 1:1로 매핑돼서 단순 캐스팅이지만,
 // 타입 안전을 위해 한 곳에 두고 명시적으로 통과시킨다.
@@ -52,17 +61,6 @@ function readErrorReply(error: unknown): string {
   }
   return '음… 지금은 답하기가 어려워.';
 }
-
-/**
- * 스케줄 intent별로 LLM에 던지는 사용자 발화. 백엔드 시스템 프롬프트에 intent 분기가 있으니
- * 본문 자체는 자연어로 두고, 어떤 의도인지 intent 필드로 전달한다.
- */
-const INTENT_USER_MESSAGE: Record<ScheduledIntent, string> = {
-  morning_check: '나 출근 시간이야.',
-  lunch_alert: '곧 점심 시간이야.',
-  lunch_review: '점심 다 먹었어.',
-  evening_check: '나 퇴근 시간 됐어. 오늘 어땠어?',
-};
 
 const INTENT_NOTIFICATION_TITLE: Record<ScheduledIntent, string> = {
   morning_check: '말랑이 · 출근 체크',
@@ -337,10 +335,17 @@ function MicIcon() {
 }
 
 export function MallangOverlayPage() {
-  const { state, persona, recentBubble, isOnboarded, setBubble } =
-    useMallangStore();
+  const {
+    state,
+    persona,
+    recentBubble,
+    bubblePersistent,
+    isOnboarded,
+    setBubble,
+  } = useMallangStore();
   const setMallangState = useMallangStore((s) => s.setState);
   const profile = useUserProfileStore((s) => s.profile);
+  const setProfile = useUserProfileStore((s) => s.setProfile);
   const updateProfile = useUserProfileStore((s) => s.updateProfile);
   const setUser = useAuthStore((s) => s.setUser);
   const onboardingComplete = isOnboarded || profile !== null;
@@ -348,7 +353,20 @@ export function MallangOverlayPage() {
   const [prompt, setPrompt] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const meSyncedRef = useRef(false);
+  const greetedRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  /**
+   * 스케줄러가 발사한 first-turn(말랑이가 먼저 던진 질문) 의 후속 응답을 어디로 라우팅할지 기록한다.
+   * - 값이 있고 expiresAt 이 아직 미래면: 사용자가 다음에 입력하는 발화를 이 intent 로 백엔드에 보내 leftOffice 등 추론을 받는다.
+   * - 사용자가 한 번 답변하면 즉시 비워 다음 발화는 일반 'free' 로 돌아간다.
+   * - 30분(=PENDING_FOLLOWUP_TTL_MS) 이 지나도록 답이 없으면 만료시켜, 한참 뒤의 발화가 엉뚱한 intent 로 라우팅되지 않도록 한다.
+   *   타임스탬프 기반이라 시스템 슬립/복구 시에도 정확하다.
+   * 렌더링과 무관한 일회성 라우팅 신호라 useRef 로 둔다.
+   */
+  const pendingFollowUpIntentRef = useRef<{
+    intent: BackendChatIntent;
+    expiresAt: number;
+  } | null>(null);
 
   const focusPromptInput = () => {
     // disabled 토글 직후 React가 포커스를 복구하지 않으니, microtask 한 번 미뤄 안전하게 호출한다.
@@ -360,27 +378,15 @@ export function MallangOverlayPage() {
   interface ChatMutationVariables {
     content: string;
     intent?: BackendChatIntent;
-    notification?: { title: string } | null;
   }
 
   const chatMutation = useMutation({
     mutationFn: ({ content, intent }: ChatMutationVariables) =>
       sendChat(content, intent ?? 'free'),
-    onSuccess: (turn, variables) => {
-      // 말랑이 응답을 말풍선으로, 사용자 발화 감정을 캐릭터 상태로 반영한다.
+    onSuccess: (turn) => {
+      // 사용자의 발화에 대한 follow-up 응답은 일반 대화처럼 4초 후 자동으로 사라진다.
       setBubble(turn.assistantMessage.content);
       setMallangState(emotionToMallangState(turn.emotion.emotion));
-      // 스케줄러로 들어온 발화면 OS 배너에도 같은 답을 띄운다.
-      if (variables.notification) {
-        void window.mallang?.notification
-          .show({
-            title: variables.notification.title,
-            body: turn.assistantMessage.content,
-          })
-          .catch((error) => {
-            console.error('[mallang] notification show failed', error);
-          });
-      }
     },
     onError: (error) => {
       setBubble(readErrorReply(error));
@@ -391,11 +397,73 @@ export function MallangOverlayPage() {
     },
   });
 
+  interface ScheduledPromptMutationVariables {
+    intent: ScheduledIntent;
+    notificationTitle: string;
+  }
+
+  /**
+   * 스케줄러로 발사된 first-turn 호출.
+   * - 백엔드는 사용자 답변 없이 LLM 으로 "질문만" 만들어 돌려준다.
+   * - 응답이 오면 말풍선에 persistent=true 로 띄워 사용자가 답하기 전까지 유지한다.
+   * - pendingFollowUpIntentRef 를 세팅해, 사용자의 다음 발화는 같은 intent 로 보내 leftOffice 등을 추론하게 한다.
+   */
+  const scheduledPromptMutation = useMutation({
+    mutationFn: ({ intent }: ScheduledPromptMutationVariables) =>
+      triggerScheduledPrompt(intent),
+    onSuccess: (assistantMessage, variables) => {
+      setBubble(assistantMessage.content, { persistent: true });
+      // 다음에 사용자가 어떤 발화를 하든 이 intent 로 백엔드에 보내 답변을 평가받는다.
+      // 단, 30분 이내에 답한 발화만 follow-up 으로 라우팅한다(그 이상은 만료).
+      pendingFollowUpIntentRef.current = {
+        intent: variables.intent,
+        expiresAt: Date.now() + PENDING_FOLLOWUP_TTL_MS,
+      };
+      void window.mallang?.notification
+        .show({
+          title: variables.notificationTitle,
+          body: assistantMessage.content,
+        })
+        .catch((error) => {
+          console.error('[mallang] notification show failed', error);
+        });
+    },
+    onError: (error) => {
+      setBubble(readErrorReply(error));
+    },
+    onSettled: () => {
+      focusPromptInput();
+    },
+  });
+
   useEffect(() => {
     if (!recentBubble) return;
+    // 1) 말랑이가 먼저 던진 질문은 사용자가 답하기 전까지 유지한다.
+    // 2) 응답 대기 중('…')일 때도 사라지지 않아야 사용자가 발화 결과를 놓치지 않는다.
+    if (bubblePersistent) return;
+    if (chatMutation.isPending) return;
     const timer = setTimeout(() => setBubble(null), 4000);
     return () => clearTimeout(timer);
-  }, [recentBubble, setBubble]);
+  }, [recentBubble, bubblePersistent, chatMutation.isPending, setBubble]);
+
+  // 앱에 접속한 직후 말랑이가 먼저 인사를 건넨다.
+  // - 한 세션 동안 한 번만 발사하기 위해 ref 로 가드한다.
+  // - fetchMe 가 끝나기 전이라도 useAuthStore.user.name 은 로그인 응답에서 이미 채워져 있어 그대로 쓴다.
+  // - 마운트 직후 곧장 띄우면 컴포넌트 전환 깜빡임과 겹치므로 약간(400ms) 늦춰서 자연스럽게 띄운다.
+  useEffect(() => {
+    if (!onboardingComplete) return;
+    if (greetedRef.current) return;
+    greetedRef.current = true;
+    const userName = useAuthStore.getState().user?.name;
+    const greeting = pickGreeting({
+      hour: new Date().getHours(),
+      name: userName ?? undefined,
+    });
+    const id = window.setTimeout(() => {
+      setBubble(greeting);
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [onboardingComplete, setBubble]);
 
   // 다른 창에서 말랑이 창으로 돌아왔을 때 매번 입력창을 클릭해야 하는 불편을 없앤다.
   // 창이 포커스를 받는 순간 채팅 입력창에 자동으로 캐럿을 위치시킨다.
@@ -431,6 +499,23 @@ export function MallangOverlayPage() {
     fetchMe()
       .then(({ user, raw }) => {
         setUser(user);
+        // 백엔드 user 응답 기준으로 "온보딩을 마친 사용자"인지 재확인한다.
+        // login 호출 시점에 setOnboarded(true) 가 누락됐거나, 자동 로그인 경로(앱 재시작)
+        // 처럼 login 함수 자체를 거치지 않은 경우에도 여기서 보정해 OnboardingFlow 를 건너뛴다.
+        const onboarded = raw.name.trim().length > 0 && Boolean(raw.teamId);
+        if (import.meta.env.DEV) {
+          console.info(
+            '[mallang] /auth/me sync — name=',
+            JSON.stringify(raw.name),
+            'teamId=',
+            raw.teamId,
+            'onboarded=',
+            onboarded,
+          );
+        }
+        if (onboarded && !useMallangStore.getState().isOnboarded) {
+          useMallangStore.getState().setOnboarded(true);
+        }
         const currentProfile = useUserProfileStore.getState().profile;
         if (currentProfile) {
           updateProfile({
@@ -456,27 +541,40 @@ export function MallangOverlayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 메인 프로세스 스케줄러가 도래한 intent 신호를 보내오면, 같은 intent로 LLM을 호출하고
-  // 응답을 말풍선 + 데스크탑 배너에 동시에 띄운다.
+  // 메인 프로세스 스케줄러가 도래한 intent 신호를 보내오면, 백엔드 first-turn 흐름으로
+  // "말랑이가 먼저 질문" 을 받아 와 말풍선에 띄우고, OS 배너에도 같은 질문을 띄운다.
+  // 그 다음 사용자의 답변은 sendPrompt 에서 pendingFollowUpIntentRef 를 통해
+  // 같은 intent 로 백엔드에 보내져 leftOffice 등을 추론하게 된다.
   useEffect(() => {
     if (!onboardingComplete) return;
     if (!window.mallang) return;
     const unsubscribe = window.mallang.scheduler.onIntentFired(
       (payload: SchedulerIntentFiredPayload) => {
         const intent = payload.intent;
-        const content = INTENT_USER_MESSAGE[intent];
         setBubble('…');
-        chatMutation.mutate({
-          content,
+        scheduledPromptMutation.mutate({
           intent,
-          notification: { title: INTENT_NOTIFICATION_TITLE[intent] },
+          notificationTitle: INTENT_NOTIFICATION_TITLE[intent],
         });
       },
     );
     return unsubscribe;
-    // chatMutation은 매 렌더마다 새 객체이지만 mutate 함수만 사용하므로 의존성에서 제외.
+    // mutate 함수만 사용하므로 mutation 객체 자체는 의존성에서 제외.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingComplete]);
+
+  // 다른 BrowserWindow(특히 마이페이지) 에서 프로필이 갱신되면 메인이 broadcast 해 주는 신호.
+  // 같은 사용자의 zustand store 가 창마다 독립이라 이걸 받아야 말랑이 창의 hobby/배경/시간 등이
+  // 즉시 따라 바뀐다.
+  useEffect(() => {
+    if (!window.mallang) return;
+    const unsubscribe = window.mallang.profile.onUpdated((next) => {
+      setProfile(next);
+      // 시간 설정도 함께 바뀌었을 수 있으니 메인 프로세스 스케줄러에도 최신 값을 동기화한다.
+      void syncSchedulerFromStores();
+    });
+    return unsubscribe;
+  }, [setProfile]);
 
   const handleClick = () => {
     setBubble(pickClickMessage(state));
@@ -487,7 +585,17 @@ export function MallangOverlayPage() {
     if (!value || chatMutation.isPending) return;
     setPrompt('');
     setBubble('…');
-    chatMutation.mutate({ content: value });
+    // 스케줄러 first-turn 으로 받은 질문에 사용자가 처음 답하는 경우라면,
+    // 같은 intent 로 백엔드에 보내 leftOffice 같은 평가를 받게 한다.
+    // 단, 30분(=PENDING_FOLLOWUP_TTL_MS) 이 지나면 만료된 것으로 보고 일반 'free' 대화로 전송한다.
+    const pending = pendingFollowUpIntentRef.current;
+    pendingFollowUpIntentRef.current = null;
+    const followUpIntent =
+      pending && pending.expiresAt > Date.now() ? pending.intent : null;
+    chatMutation.mutate({
+      content: value,
+      intent: followUpIntent ?? 'free',
+    });
   };
 
   const handlePromptKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
