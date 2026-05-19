@@ -62,6 +62,8 @@ interface TextInputProps {
   placeholder: string;
   maxLength: number;
   allowEmpty?: boolean;
+  /** OpenAI 키처럼 노출이 곤란한 값은 비밀번호 타입으로 입력받는다. */
+  secret?: boolean;
   onSubmit: (value: string) => void;
 }
 
@@ -69,6 +71,7 @@ export function TextInput({
   placeholder,
   maxLength,
   allowEmpty,
+  secret,
   onSubmit,
 }: TextInputProps) {
   const [value, setValue] = useState('');
@@ -106,6 +109,9 @@ export function TextInput({
         onCompositionEnd={() => setIsComposing(false)}
         placeholder={placeholder}
         maxLength={maxLength}
+        type={secret ? 'password' : 'text'}
+        autoComplete={secret ? 'off' : undefined}
+        spellCheck={secret ? false : undefined}
       />
       <SendButton type="submit" disabled={disabled} aria-label="보내기">
         ↑
@@ -313,16 +319,17 @@ const ConfirmYes = styled(Chip)`
 interface ConfirmProps {
   onYes: () => void;
   onNo: () => void;
+  isSubmitting?: boolean;
 }
 
-export function ConfirmInput({ onYes, onNo }: ConfirmProps) {
+export function ConfirmInput({ onYes, onNo, isSubmitting }: ConfirmProps) {
   return (
     <ConfirmRow>
-      <Chip type="button" onClick={onNo}>
+      <Chip type="button" onClick={onNo} disabled={isSubmitting}>
         다시 알려줄게
       </Chip>
-      <ConfirmYes type="button" onClick={onYes}>
-        맞아!
+      <ConfirmYes type="button" onClick={onYes} disabled={isSubmitting}>
+        {isSubmitting ? '저장 중…' : '맞아!'}
       </ConfirmYes>
     </ConfirmRow>
   );

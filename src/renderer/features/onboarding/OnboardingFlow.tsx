@@ -1,7 +1,16 @@
+import { useMutation } from '@tanstack/react-query';
+import axios from 'axios';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useState } from 'react';
 import styled from 'styled-components';
 import type { MallangPersona } from '../../../shared/types/domain';
 import { MallangCharacter } from '../mallang/components/MallangCharacter';
+import {
+  DEFAULT_SEARCH_RADIUS_METERS,
+  updateTeamLocation,
+} from '../../shared/api/teams-api';
+import { setOpenAiKey, updateMe } from '../../shared/api/users-api';
+import { useAuthStore } from '../../shared/stores/auth-store';
 import { useMallangStore } from '../../shared/stores/mallang-store';
 import { useUserProfileStore } from '../../shared/stores/user-profile-store';
 import {
@@ -12,6 +21,16 @@ import {
 } from './components/inputs';
 import { useOnboardingStore } from './onboarding-store';
 import { ONBOARDING_STEPS, summarizeAnswers } from './steps';
+
+function readError(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as { message?: unknown } | undefined;
+    if (typeof data?.message === 'string') return data.message;
+    if (Array.isArray(data?.message)) return data?.message.join(', ');
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
 
 const Wrapper = styled.div`
   width: 100%;
@@ -79,6 +98,17 @@ const Bubble = styled(motion.div)`
   }
 `;
 
+const ErrorMessage = styled.p`
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: ${({ theme }) => theme.colors.dangerSurface};
+  color: ${({ theme }) => theme.colors.danger};
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+`;
+
 const SummaryCard = styled.div`
   background: ${({ theme }) => theme.brand.bubble};
   color: ${({ theme }) => theme.brand.bubbleText};
@@ -95,6 +125,77 @@ export function OnboardingFlow() {
     useOnboardingStore();
   const { persona, setPersona, setOnboarded } = useMallangStore();
   const setProfile = useUserProfileStore((state) => state.setProfile);
+  const setUser = useAuthStore((s) => s.setUser);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const submitMutation = useMutation({
+    /**
+     * 온보딩에서 모은 정보를 백엔드로 일괄 전송한다.
+     *  1) updateMe : 기본 프로필(이름/팀/시간/취미/알러지). 팀이 새로 만들어지는 경우 여기서 생성된다.
+     *  2) updateTeamLocation : 회사 도로명 주소. 반경은 사용자에게 노출 안 하고 500m 로 고정.
+     *  3) setOpenAiKey : 말랑이 두뇌 키. 빠지면 채팅이 동작하지 않으므로 필수로 받는다.
+     * 부분 실패가 나면 그 단계에서 throw 해서 사용자에게 그 단계 메시지로 알리고,
+     * "맞아!" 를 다시 누르면 idempotent 하게 처음부터 다시 시도된다.
+     */
+    mutationFn: async () => {
+      const hobby = answers.hobby ?? 'rest';
+      let lastUser;
+      try {
+        const result = await updateMe({
+          name: answers.name,
+          teamName: answers.team,
+          workStartTime: answers.workStart,
+          lunchTime: answers.lunch,
+          workEndTime: answers.workEnd,
+          hobby,
+          allergies: answers.allergies,
+        });
+        lastUser = result.user;
+      } catch (error) {
+        throw new Error(readError(error, '기본 정보를 저장하지 못했어.'));
+      }
+
+      try {
+        await updateTeamLocation({
+          address: answers.address.trim(),
+          searchRadiusMeters: DEFAULT_SEARCH_RADIUS_METERS,
+        });
+      } catch (error) {
+        throw new Error(readError(error, '회사 주소를 저장하지 못했어.'));
+      }
+
+      try {
+        const result = await setOpenAiKey(answers.apiKey.trim());
+        lastUser = result.user;
+      } catch (error) {
+        throw new Error(readError(error, 'OpenAI 키를 등록하지 못했어.'));
+      }
+
+      return { user: lastUser, hobby };
+    },
+    onSuccess: ({ user, hobby }) => {
+      // 백엔드에 답변이 기록됐으니, 다음 로그인 때 name 신호로 OnboardingFlow 를 건너뛰게 된다.
+      setUser(user);
+      setProfile({
+        name: answers.name,
+        team: answers.team,
+        workStartTime: answers.workStart,
+        lunchTime: answers.lunch,
+        workEndTime: answers.workEnd,
+        hobby,
+        allergies: answers.allergies,
+      });
+      setOnboarded(true);
+      reset();
+    },
+    onError: (error) => {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : '서버에 답변을 저장하지 못했어. 잠시 후 다시 시도해 줘.',
+      );
+    },
+  });
 
   const step = ONBOARDING_STEPS[stepIndex];
   if (!step) return null;
@@ -106,6 +207,10 @@ export function OnboardingFlow() {
       updateAnswers({ allergies: value });
     } else if (step.id === 'team') {
       updateAnswers({ team: value });
+    } else if (step.id === 'address') {
+      updateAnswers({ address: value });
+    } else if (step.id === 'apiKey') {
+      updateAnswers({ apiKey: value });
     }
     next();
   };
@@ -129,18 +234,8 @@ export function OnboardingFlow() {
   };
 
   const handleConfirmYes = () => {
-    // TODO: POST /users/onboarding 으로 답변 전송
-    setProfile({
-      name: answers.name,
-      team: answers.team,
-      workStartTime: answers.workStart,
-      lunchTime: answers.lunch,
-      workEndTime: answers.workEnd,
-      hobby: answers.hobby ?? 'rest',
-      allergies: answers.allergies,
-    });
-    setOnboarded(true);
-    reset();
+    setSubmitError(null);
+    submitMutation.mutate();
   };
 
   const handleConfirmNo = () => {
@@ -175,6 +270,7 @@ export function OnboardingFlow() {
             placeholder={step.placeholder}
             maxLength={step.maxLength}
             allowEmpty={step.id === 'allergies' ? step.allowEmpty : false}
+            secret={step.id === 'apiKey'}
             onSubmit={handleTextSubmit}
           />
         )}
@@ -188,7 +284,14 @@ export function OnboardingFlow() {
         )}
 
         {step.type === 'confirm' && (
-          <ConfirmInput onYes={handleConfirmYes} onNo={handleConfirmNo} />
+          <>
+            {submitError && <ErrorMessage>{submitError}</ErrorMessage>}
+            <ConfirmInput
+              onYes={handleConfirmYes}
+              onNo={handleConfirmNo}
+              isSubmitting={submitMutation.isPending}
+            />
+          </>
         )}
       </BottomArea>
     </Wrapper>

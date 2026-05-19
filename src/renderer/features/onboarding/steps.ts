@@ -39,6 +39,22 @@ export type OnboardingStep =
       maxLength: number;
     }
   | {
+      id: 'address';
+      type: 'text';
+      prompt: (a: OnboardingAnswers) => string;
+      placeholder: string;
+      maxLength: number;
+    }
+  | {
+      id: 'apiKey';
+      type: 'text';
+      prompt: (a: OnboardingAnswers) => string;
+      placeholder: string;
+      maxLength: number;
+      /** 비밀번호 타입으로 입력해서 화면에 노출되지 않게 한다. */
+      secret: true;
+    }
+  | {
       id: 'confirm';
       type: 'confirm';
       prompt: (a: OnboardingAnswers) => string;
@@ -83,9 +99,26 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'team',
     type: 'text',
-    prompt: () => '좋아, 마지막으로 어떤 팀에 속해 있어?',
+    prompt: () => '어떤 팀에 속해 있어?',
     placeholder: '팀 이름을 알려줘',
     maxLength: 30,
+  },
+  {
+    id: 'address',
+    type: 'text',
+    prompt: () =>
+      '회사는 어디 있어?\n점심 추천을 위해 회사 도로명 주소가 필요해.',
+    placeholder: '예: 서울 강남구 테헤란로 152',
+    maxLength: 200,
+  },
+  {
+    id: 'apiKey',
+    type: 'text',
+    prompt: () =>
+      '마지막으로 OpenAI API 키를 알려줘.\n내가 너랑 대화하고 너의 하루를 정리하려면 이 키가 필요해.',
+    placeholder: 'sk-...',
+    maxLength: 200,
+    secret: true,
   },
   {
     id: 'confirm',
@@ -102,6 +135,16 @@ export function summarizeAnswers(a: OnboardingAnswers): string {
     `퇴근 후: ${a.hobby ? MALLANG_PERSONA_LABEL[a.hobby] : '-'}`,
     `못 먹는 음식: ${a.allergies.trim() ? a.allergies : '없음'}`,
     `팀: ${a.team}`,
+    `회사 주소: ${a.address}`,
+    `OpenAI 키: ${maskApiKey(a.apiKey)}`,
   ];
   return lines.join('\n');
+}
+
+/** API 키는 요약에서도 끝 4자리만 보이도록 마스킹한다. */
+function maskApiKey(key: string): string {
+  const trimmed = key.trim();
+  if (!trimmed) return '-';
+  if (trimmed.length <= 4) return '••••';
+  return `${trimmed.slice(0, 3)}••••${trimmed.slice(-4)}`;
 }

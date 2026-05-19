@@ -14,6 +14,8 @@ export interface OnboardingAnswers {
   hobby: MallangPersona | null;
   allergies: string;
   team: string;
+  address: string;
+  apiKey: string;
 }
 
 const INITIAL_ANSWERS: OnboardingAnswers = {
@@ -24,6 +26,8 @@ const INITIAL_ANSWERS: OnboardingAnswers = {
   hobby: null,
   allergies: '',
   team: '',
+  address: '',
+  apiKey: '',
 };
 
 interface OnboardingStoreState {
