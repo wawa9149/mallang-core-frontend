@@ -218,6 +218,13 @@ export function ProfileSection() {
       queryClient.invalidateQueries({ queryKey: ['team'] });
       // 시간 설정이 바뀌었을 가능성이 있으니 메인 프로세스 스케줄러에 최신 값을 전달한다.
       void syncSchedulerFromStores();
+      // 같은 사용자의 zustand store 가 BrowserWindow 마다 독립이라,
+      // 말랑이/그룹/점심 투표 창 등 다른 창에는 변경이 자동으로 전파되지 않는다.
+      // (예: hobby 가 바뀌면 말랑이 창 배경이 갱신돼야 하는데 안 바뀌는 이슈)
+      // 메인 프로세스를 통해 다른 창에도 broadcast 해서 즉시 동기화한다.
+      void window.mallang?.profile.broadcastUpdated(input).catch((error) => {
+        console.error('[mypage] profile broadcast failed', error);
+      });
     },
     onError: (error) => {
       setErrorMessage(readErrorMessage(error));

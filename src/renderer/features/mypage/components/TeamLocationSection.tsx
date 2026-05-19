@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import {
+  DEFAULT_SEARCH_RADIUS_METERS,
   fetchTeamMembers,
   syncTeamRestaurants,
   updateTeamLocation,
@@ -52,12 +53,6 @@ const Input = styled.input`
   &:focus {
     border-color: ${({ theme }) => theme.brand.primary};
   }
-`;
-
-const Row = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px;
-  gap: 8px;
 `;
 
 const ButtonRow = styled.div`
@@ -151,7 +146,6 @@ export function TeamLocationSection() {
   const location = teamQuery.data?.team?.location;
 
   const [address, setAddress] = useState('');
-  const [radius, setRadius] = useState(800);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [savedHint, setSavedHint] = useState<string | null>(null);
 
@@ -160,14 +154,14 @@ export function TeamLocationSection() {
   useEffect(() => {
     if (!location) return;
     setAddress((prev) => (prev === '' ? (location.address ?? '') : prev));
-    setRadius((prev) => (prev === 800 ? location.searchRadiusMeters : prev));
   }, [location]);
 
   const saveMutation = useMutation({
     mutationFn: () =>
       updateTeamLocation({
         address: address.trim().length > 0 ? address.trim() : null,
-        searchRadiusMeters: radius,
+        // 반경은 사용자에게 노출하지 않고 항상 기본값(500m)으로 고정한다.
+        searchRadiusMeters: DEFAULT_SEARCH_RADIUS_METERS,
       }),
     onSuccess: () => {
       setErrorMessage(null);
@@ -237,29 +231,15 @@ export function TeamLocationSection() {
       <Title>회사 위치</Title>
       <FieldLabel>
         도로명 주소
-        <Row>
-          <Input
-            value={address}
-            onChange={(event) => setAddress(event.target.value)}
-            placeholder="예: 서울 강남구 테헤란로 152"
-            maxLength={200}
-          />
-          <Input
-            type="number"
-            min={100}
-            max={5000}
-            step={100}
-            value={radius}
-            onChange={(event) => {
-              const next = Number(event.target.value);
-              if (Number.isFinite(next)) setRadius(next);
-            }}
-            placeholder="반경(m)"
-          />
-        </Row>
+        <Input
+          value={address}
+          onChange={(event) => setAddress(event.target.value)}
+          placeholder="예: 서울 강남구 테헤란로 152"
+          maxLength={200}
+        />
       </FieldLabel>
       {hasCoords ? (
-        <Meta>좌표 변환 완료 · 반경 {location?.searchRadiusMeters}m</Meta>
+        <Meta>좌표 변환 완료</Meta>
       ) : location?.address ? (
         <Notice>
           좌표 변환이 아직 안 됐어. 위 &quot;주소 저장&quot;을 한 번 더 눌러 봐.
