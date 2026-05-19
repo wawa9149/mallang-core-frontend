@@ -23,6 +23,14 @@ import { getMallangWindow } from '../windows/mallang-window';
 
 const TICK_INTERVAL_MS = 60_000;
 
+/**
+ * 도래 시점에서 이만큼 분 이내에 catchup 이 일어났을 때만 즉시 발사한다.
+ * 예: 5 분이면 11:55 ~ 12:00 사이 도래한 알림은 12:00 에 catchup 으로 fire 되지만,
+ *     11:30 에 도래했던 알림은 "이미 한참 지난 알림" 이라 fire 하지 않는다.
+ * 슬립에서 깨어났거나 사용자가 시간 설정을 바꿨을 때 어색한 과거 알림 폭주를 막는다.
+ */
+const CATCHUP_GRACE_MINUTES = 5;
+
 let timer: NodeJS.Timeout | null = null;
 let config: SchedulerConfigPayload | null = null;
 let firedToday = new Map<ScheduledIntent, string>(); // intent → 'YYYY-MM-DD'
@@ -129,7 +137,9 @@ function tick(): void {
 
 function resumeCatchUp(): void {
   if (!config) return;
-  // 슬립 등에서 깨어났을 때, 오늘 도래했지만 아직 발사 안 된 intent를 한 번에 채워준다.
+  // 슬립 등에서 깨어났을 때, 직전 짧은 시간(grace) 안에 도래한 intent만 채워준다.
+  // 한참 전에 지나간 알림까지 한 번에 띄우면 사용자에게 어색하므로,
+  // grace 를 넘긴 intent 는 "오늘 발사한 것으로 표시" 만 하고 fire 는 생략한다.
   const key = todayKey();
   if (lastResetDate !== key) {
     firedToday = new Map();
@@ -140,9 +150,33 @@ function resumeCatchUp(): void {
   for (const t of computeTriggers()) {
     if (firedToday.get(t.intent) === key) continue;
     const scheduled = t.at.h * 60 + t.at.m;
+    const delta = nowMinutes - scheduled;
+    if (delta < 0) continue; // 미래 trigger 는 tick 이 정시에 잡는다.
+    firedToday.set(t.intent, key);
+    if (delta <= CATCHUP_GRACE_MINUTES) {
+      fireIntent(t.intent);
+    }
+  }
+}
+
+/**
+ * 첫 setSchedulerConfig 호출(=앱 시작 직후) 전용 동작.
+ * 오늘 이미 지나간 trigger 들을 모두 "발사 완료" 로 표시만 해서, 이후 tick 이 잡지 않게 한다.
+ * 한참 지난 알림이 앱 시작 시 한 번에 쏟아지는 문제를 막는 핵심 처리.
+ */
+function markPastTriggersAsFired(): void {
+  if (!config) return;
+  const key = todayKey();
+  if (lastResetDate !== key) {
+    firedToday = new Map();
+    lastResetDate = key;
+  }
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  for (const t of computeTriggers()) {
+    const scheduled = t.at.h * 60 + t.at.m;
     if (scheduled <= nowMinutes) {
       firedToday.set(t.intent, key);
-      fireIntent(t.intent);
     }
   }
 }
@@ -166,23 +200,29 @@ export function stopIntentScheduler(): void {
 }
 
 export function setSchedulerConfig(next: SchedulerConfigPayload): void {
-  // 이전 config의 시간 필드와 비교해, 시간이 바뀐 intent만 "오늘 이미 발사함" 기록에서 제거한다.
-  // 사용자가 시간을 명시적으로 변경했다는 건 그 intent의 흐름(예: 점심 알림 → 투표 창)을
-  // 다시 한 번 타고 싶다는 의도로 본다. 시간이 그대로면 기록을 유지해 중복 알림을 막는다.
   const prev = config;
-  const clearable: ScheduledIntent[] = [];
-  if (prev) {
-    if (prev.workStartTime !== next.workStartTime)
-      clearable.push('morning_check');
-    if (prev.lunchTime !== next.lunchTime) {
-      clearable.push('lunch_alert', 'lunch_review');
-    }
-    if (prev.workEndTime !== next.workEndTime) clearable.push('evening_check');
+  config = next;
+
+  if (!prev) {
+    // 첫 적용(=앱 시작 직후 syncSchedulerFromStores 호출). 오늘 이미 지나간 알림은
+    // 절대 끌어 올리지 않는다. 미래 trigger 는 tick 이 정시에 잡는다.
+    markPastTriggersAsFired();
+    return;
   }
+
+  // 이전 config 의 시간 필드와 비교해, 시간이 바뀐 intent 만 "오늘 이미 발사함" 기록에서 제거한다.
+  // 사용자가 시간을 변경했다는 건 그 intent 의 흐름(예: 점심 알림 → 투표 창)을 다시 타고 싶다는 의도.
+  // 단, 새 시간이 한참 전이면 grace 범위를 벗어나 fire 되지 않고 markPastTriggersAsFired 효과만 받는다.
+  const clearable: ScheduledIntent[] = [];
+  if (prev.workStartTime !== next.workStartTime)
+    clearable.push('morning_check');
+  if (prev.lunchTime !== next.lunchTime) {
+    clearable.push('lunch_alert', 'lunch_review');
+  }
+  if (prev.workEndTime !== next.workEndTime) clearable.push('evening_check');
   for (const intent of clearable) firedToday.delete(intent);
 
-  config = next;
-  // 시간 설정이 바뀌면 이미 도래한 intent를 즉시 채우고, 미래 시간이면 tick이 자연스럽게 잡는다.
+  // 직전 grace 안에 도래한 intent 만 즉시 채우고, 미래 시간이면 tick 이 자연스럽게 잡는다.
   resumeCatchUp();
 }
 
