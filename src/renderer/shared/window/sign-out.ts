@@ -25,14 +25,18 @@ export async function signOutAndReturnToLogin(): Promise<void> {
     state: 'neutral',
     persona: 'rest',
     recentBubble: null,
+    bubblePersistent: false,
     isOnboarded: false,
   });
   // 메인 프로세스에 떠 있던 사용자 시간 설정과 발사 기록도 함께 비운다.
   await clearScheduler();
 
+  // 1) 로그인 창을 먼저 띄워 둬야 모든 창이 닫혀도 앱이 종료되지 않는다.
   await bridge.openMain('/login');
-  await bridge.closeMyPage().catch(() => undefined);
-  await bridge.closeGroup().catch(() => undefined);
-  await bridge.closeLunchVote().catch(() => undefined);
+  // 2) 말랑이 창을 닫으면 메인 프로세스의 'closed' 핸들러가 부속 패널
+  //    (마이페이지/그룹/점심 투표)을 함께 정리해 준다.
+  //    여기서 closeMyPage 같은 호출을 직접 await 하면, 마이페이지에서
+  //    로그아웃을 눌렀을 때 자기 자신 렌더러가 먼저 파괴되면서 다음 IPC가
+  //    실행되지 않아 말랑이 창이 남는 문제가 생긴다.
   await bridge.closeMallang().catch(() => undefined);
 }

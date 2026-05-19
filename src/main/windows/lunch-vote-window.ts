@@ -50,10 +50,11 @@ export function createLunchVoteWindow() {
     },
   });
 
-  lunchVoteWindow.setAlwaysOnTop(true, 'screen-saver');
-  lunchVoteWindow.setVisibleOnAllWorkspaces(true, {
-    visibleOnFullScreen: true,
-  });
+  // 다른 앱에 가려지지 않도록 위에 띄우되, 'floating' 레벨을 사용해
+  // macOS Spaces 전환 시 부속 패널이 다른 데스크탑까지 따라가지 않도록 한다.
+  lunchVoteWindow.setAlwaysOnTop(true, 'floating');
+  // 풀스크린 앱이나 다른 Space로 이동할 때 따라오지 않게 한다.
+  lunchVoteWindow.setVisibleOnAllWorkspaces(false);
 
   loadRenderer(lunchVoteWindow, '/lunch/vote');
 
