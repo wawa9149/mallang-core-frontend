@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import {
   castLunchVote,
-  closeLunchVote,
-  createLunchVote,
+  ensureAutoLunchVote,
   fetchActiveLunchVotes,
 } from '../../../shared/api/lunch-votes-api';
 import type {
@@ -141,141 +140,6 @@ const Footer = styled.footer`
   margin-top: 2px;
 `;
 
-const SmallButton = styled.button`
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 10px;
-  background: ${({ theme }) => theme.brand.background};
-  color: ${({ theme }) => theme.brand.subtitle};
-  font-size: 11px;
-  font-weight: 700;
-
-  &:hover:not(:disabled) {
-    color: ${({ theme }) => theme.brand.title};
-  }
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
-const CreateForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 14px 12px;
-  border-radius: 16px;
-  background: ${({ theme }) => theme.brand.inputBg};
-`;
-
-const FormTitle = styled.label`
-  font-size: 11px;
-  font-weight: 700;
-  color: ${({ theme }) => theme.brand.subtitle};
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`;
-
-const Input = styled.input`
-  height: 36px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 0 12px;
-  background: ${({ theme }) => theme.brand.background};
-  color: ${({ theme }) => theme.brand.inputText};
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-
-  &::placeholder {
-    color: ${({ theme }) => theme.brand.inputPlaceholder};
-  }
-
-  &:focus {
-    border-color: ${({ theme }) => theme.brand.primary};
-  }
-`;
-
-const OptionInputs = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-`;
-
-const OptionInputRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`;
-
-const RemoveBtn = styled.button`
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: ${({ theme }) => theme.brand.background};
-  color: ${({ theme }) => theme.brand.subtitle};
-  font-size: 14px;
-  font-weight: 700;
-
-  &:hover:not(:disabled) {
-    color: ${({ theme }) => theme.colors.danger};
-  }
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-`;
-
-const AddOptionButton = styled.button`
-  height: 32px;
-  border-radius: 10px;
-  background: ${({ theme }) => theme.brand.background};
-  color: ${({ theme }) => theme.brand.subtitle};
-  font-size: 12px;
-  font-weight: 700;
-
-  &:hover:not(:disabled) {
-    color: ${({ theme }) => theme.brand.title};
-  }
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
-const SubmitButton = styled.button`
-  height: 40px;
-  border-radius: 12px;
-  background: ${({ theme }) => theme.brand.primary};
-  color: ${({ theme }) => theme.brand.promptText};
-  font-size: 13px;
-  font-weight: 700;
-
-  &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.brand.primaryHover};
-  }
-  &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-`;
-
-const CancelButton = styled.button`
-  height: 34px;
-  border: none;
-  background: transparent;
-  color: ${({ theme }) => theme.brand.subtitle};
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-
-  &:hover {
-    color: ${({ theme }) => theme.brand.title};
-  }
-`;
-
 const Empty = styled.div`
   padding: 14px 12px;
   border-radius: 14px;
@@ -312,31 +176,6 @@ const WinnerLabel = styled.span`
   color: ${({ theme }) => theme.brand.subtitle};
 `;
 
-const RestartRow = styled.div`
-  display: flex;
-  justify-content: center;
-`;
-
-const RestartButton = styled.button`
-  height: 38px;
-  padding: 0 18px;
-  border: none;
-  border-radius: 999px;
-  background: ${({ theme }) => theme.brand.primary};
-  color: ${({ theme }) => theme.brand.title};
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition:
-    background 160ms ease,
-    transform 120ms ease;
-
-  &:hover {
-    background: ${({ theme }) => theme.brand.primaryHover};
-    transform: translateY(-1px);
-  }
-`;
-
 const ErrorBox = styled.p`
   margin: 0;
   padding: 8px 12px;
@@ -348,8 +187,40 @@ const ErrorBox = styled.p`
   text-align: center;
 `;
 
-const MAX_OPTIONS = 6;
-const MIN_OPTIONS = 2;
+const NotesBox = styled.p`
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: ${({ theme }) => theme.brand.background};
+  color: ${({ theme }) => theme.brand.subtitle};
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+`;
+
+const WaitingCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px 12px;
+  border-radius: 16px;
+  background: ${({ theme }) => theme.brand.inputBg};
+`;
+
+const WaitingTitle = styled.h3`
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: ${({ theme }) => theme.brand.title};
+`;
+
+const WaitingDescription = styled.p`
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.brand.subtitle};
+  line-height: 1.5;
+`;
 
 interface Props {
   /** GroupPage가 이미 조회해 둔 팀 정보. team=null이면 투표 UI를 노출하지 않는다. */
@@ -357,9 +228,21 @@ interface Props {
   isTeamLoading: boolean;
   /** 별창에서 자체 타이틀을 따로 보여줄 때처럼, 섹션 헤더(이름/참여수)를 숨기고 본문만 렌더할 수 있다. */
   hideHeader?: boolean;
+  /**
+   * true면 마운트 시 백엔드 `POST /lunch-votes/auto`를 한 번 호출해서
+   * 오늘 우리 팀의 점심 투표를 멱등하게 보장한다. 점심 별창에서만 true로 사용하고,
+   * 그룹 페이지의 인라인 섹션에서는 false로 둬서 사용자가 그룹을 미리 봐도
+   * 의도치 않게 투표가 만들어지지 않도록 한다.
+   */
+  autoEnsure?: boolean;
 }
 
-export function LunchVoteSection({ team, isTeamLoading, hideHeader }: Props) {
+export function LunchVoteSection({
+  team,
+  isTeamLoading,
+  hideHeader,
+  autoEnsure,
+}: Props) {
   const queryClient = useQueryClient();
   const hasTeam = Boolean(team?.team);
 
@@ -372,14 +255,34 @@ export function LunchVoteSection({ team, isTeamLoading, hideHeader }: Props) {
     refetchInterval: 5_000,
   });
 
+  // autoEnsure가 켜진 별창에서만 1회 ensure를 호출한다. 백엔드가 멱등이라
+  // 다시 열어도 안전하고, 후보가 0개인 케이스의 안내문(notes)도 함께 받는다.
+  const ensureMutation = useMutation({
+    mutationFn: ensureAutoLunchVote,
+    onSuccess: (result) => {
+      // 새 LunchVote가 만들어졌든 기존이 그대로든, active 리스트를 다시 가져온다.
+      if (result.vote) {
+        queryClient.invalidateQueries({ queryKey: ['lunch-votes'] });
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!autoEnsure || !hasTeam) return;
+    // 의도적으로 한 번만 발화: 별창이 열린 그 시점이 점심 시작 신호. 멱등 보장은 백엔드 책임.
+    ensureMutation.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoEnsure, hasTeam]);
+
   const active = activeQuery.data?.[0];
-  // 마감된 투표를 보고 있을 때 사용자가 직접 "새 투표 시작"을 누르면 CreateForm으로 전환.
-  const [restartMode, setRestartMode] = useState(false);
+  // 후보 0개로 자동 생성 자체가 안 된 경우의 안내문. ensure가 vote=null로 응답했을 때만 보여준다.
+  const ensureNotes =
+    ensureMutation.data && !ensureMutation.data.vote
+      ? ensureMutation.data.notes
+      : [];
 
   if (isTeamLoading) return null;
   if (!hasTeam) return null;
-
-  const showCreateForm = !active || (active.status === 'closed' && restartMode);
 
   return (
     <Section>
@@ -399,36 +302,60 @@ export function LunchVoteSection({ team, isTeamLoading, hideHeader }: Props) {
       )}
       {activeQuery.isLoading ? (
         <Empty>투표 정보를 불러오는 중…</Empty>
-      ) : showCreateForm ? (
-        <CreateLunchVoteForm
-          onCreated={() => {
-            setRestartMode(false);
-            queryClient.invalidateQueries({ queryKey: ['lunch-votes'] });
-          }}
-          onCancel={
-            active && active.status === 'closed'
-              ? () => setRestartMode(false)
-              : undefined
+      ) : active ? (
+        <ActiveVoteCard
+          vote={active}
+          onChanged={() =>
+            queryClient.invalidateQueries({ queryKey: ['lunch-votes'] })
           }
         />
-      ) : active ? (
-        <>
-          <ActiveVoteCard
-            vote={active}
-            onChanged={() =>
-              queryClient.invalidateQueries({ queryKey: ['lunch-votes'] })
-            }
-          />
-          {active.status === 'closed' && (
-            <RestartRow>
-              <RestartButton type="button" onClick={() => setRestartMode(true)}>
-                새 투표 시작하기
-              </RestartButton>
-            </RestartRow>
-          )}
-        </>
-      ) : null}
+      ) : (
+        <WaitingPlaceholder
+          isEnsuring={ensureMutation.isPending}
+          ensureNotes={ensureNotes}
+        />
+      )}
     </Section>
+  );
+}
+
+function WaitingPlaceholder({
+  isEnsuring,
+  ensureNotes,
+}: {
+  isEnsuring: boolean;
+  ensureNotes: string[];
+}) {
+  if (isEnsuring) {
+    return (
+      <WaitingCard>
+        <WaitingTitle>오늘 점심 후보를 추리는 중…</WaitingTitle>
+        <WaitingDescription>
+          말랑이가 팀 컨텍스트로 후보 세 곳을 고르고 있어. 잠시만 기다려 줘.
+        </WaitingDescription>
+      </WaitingCard>
+    );
+  }
+
+  if (ensureNotes.length > 0) {
+    return (
+      <WaitingCard>
+        <WaitingTitle>오늘은 점심 투표를 시작하지 못했어</WaitingTitle>
+        {ensureNotes.map((note) => (
+          <NotesBox key={note}>{note}</NotesBox>
+        ))}
+      </WaitingCard>
+    );
+  }
+
+  return (
+    <WaitingCard>
+      <WaitingTitle>점심 시간이 되면 자동으로 시작돼</WaitingTitle>
+      <WaitingDescription>
+        설정해 둔 점심 시간 10분 전에 말랑이가 추천 후보 세 곳으로 투표를
+        자동으로 열어. 팀원은 그냥 마음에 드는 곳을 클릭만 하면 돼.
+      </WaitingDescription>
+    </WaitingCard>
   );
 }
 
@@ -452,16 +379,11 @@ function ActiveVoteCard({
     mutationFn: (optionId: string) => castLunchVote(vote.id, optionId),
     onSuccess: () => onChanged(),
   });
-  const closeMutation = useMutation({
-    mutationFn: () => closeLunchVote(vote.id),
-    onSuccess: () => onChanged(),
-  });
 
-  const errorMessage = readMutationError(
-    castMutation.error ?? closeMutation.error,
-  );
+  const errorMessage = readMutationError(castMutation.error);
 
-  // 투표 마감 후엔 표 변경/마감 버튼을 잠그고, 우승 옵션은 시각적으로 강조한다.
+  // 투표 마감 후엔 표 변경을 잠그고, 우승 옵션은 시각적으로 강조한다.
+  // 마감 트리거는 "팀원 전원 투표 완료" 또는 "lunchTime 정시"로만 일어나며, 수동 마감 액션은 두지 않는다.
   const lockInteractions = isClosed || expired;
 
   return (
@@ -522,15 +444,6 @@ function ActiveVoteCard({
               ? '내 표가 반영됐어'
               : '아직 투표하지 않았어'}
         </TotalLabel>
-        {!lockInteractions && (
-          <SmallButton
-            type="button"
-            onClick={() => closeMutation.mutate()}
-            disabled={closeMutation.isPending}
-          >
-            {closeMutation.isPending ? '마감 중…' : '지금 마감'}
-          </SmallButton>
-        )}
       </Footer>
     </VoteCard>
   );
@@ -584,112 +497,6 @@ function CrownIcon() {
         fillOpacity="0.18"
       />
     </svg>
-  );
-}
-
-function CreateLunchVoteForm({
-  onCreated,
-  onCancel,
-}: {
-  onCreated: () => void;
-  /** 마감된 투표에서 "새 투표 시작" 클릭 후 다시 결과 화면으로 돌아갈 때 쓰는 핸들러. */
-  onCancel?: () => void;
-}) {
-  const [title, setTitle] = useState('');
-  const [options, setOptions] = useState<string[]>(['', '']);
-
-  const mutation = useMutation({
-    mutationFn: () => {
-      const cleaned = options.map((o) => o.trim()).filter(Boolean);
-      return createLunchVote({
-        title: title.trim() || undefined,
-        options: cleaned,
-      });
-    },
-    onSuccess: () => {
-      setTitle('');
-      setOptions(['', '']);
-      onCreated();
-    },
-  });
-
-  const cleanedCount = useMemo(
-    () => options.map((o) => o.trim()).filter(Boolean).length,
-    [options],
-  );
-  const canSubmit = cleanedCount >= MIN_OPTIONS && !mutation.isPending;
-
-  const updateOption = (idx: number, value: string) => {
-    setOptions((prev) => prev.map((v, i) => (i === idx ? value : v)));
-  };
-  const addOption = () => {
-    if (options.length >= MAX_OPTIONS) return;
-    setOptions((prev) => [...prev, '']);
-  };
-  const removeOption = (idx: number) => {
-    if (options.length <= MIN_OPTIONS) return;
-    setOptions((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const errorMessage = readMutationError(mutation.error);
-
-  return (
-    <CreateForm
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (canSubmit) mutation.mutate();
-      }}
-    >
-      <FormTitle>
-        주제 (선택)
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="오늘 점심 뭐 먹지?"
-          maxLength={50}
-        />
-      </FormTitle>
-      <FormTitle>
-        옵션 ({MIN_OPTIONS}~{MAX_OPTIONS}개)
-        <OptionInputs>
-          {options.map((value, idx) => (
-            <OptionInputRow key={idx}>
-              <Input
-                value={value}
-                onChange={(e) => updateOption(idx, e.target.value)}
-                placeholder={`옵션 ${idx + 1}`}
-                maxLength={40}
-              />
-              <RemoveBtn
-                type="button"
-                onClick={() => removeOption(idx)}
-                disabled={options.length <= MIN_OPTIONS}
-                aria-label="옵션 삭제"
-                title="옵션 삭제"
-              >
-                ×
-              </RemoveBtn>
-            </OptionInputRow>
-          ))}
-        </OptionInputs>
-      </FormTitle>
-      <AddOptionButton
-        type="button"
-        onClick={addOption}
-        disabled={options.length >= MAX_OPTIONS}
-      >
-        + 옵션 추가
-      </AddOptionButton>
-      {errorMessage && <ErrorBox>{errorMessage}</ErrorBox>}
-      <SubmitButton type="submit" disabled={!canSubmit}>
-        {mutation.isPending ? '시작 중…' : '점심 투표 시작'}
-      </SubmitButton>
-      {onCancel && (
-        <CancelButton type="button" onClick={onCancel}>
-          이전 결과로 돌아가기
-        </CancelButton>
-      )}
-    </CreateForm>
   );
 }
 

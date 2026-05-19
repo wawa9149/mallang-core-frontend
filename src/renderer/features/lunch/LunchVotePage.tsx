@@ -82,6 +82,7 @@ export function LunchVotePage() {
             team={teamQuery.data}
             isTeamLoading={teamQuery.isLoading}
             hideHeader
+            autoEnsure
           />
         )}
       </Scroll>

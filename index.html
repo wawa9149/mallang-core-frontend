@@ -2,9 +2,17 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Content Security Policy.
+      - connect-src: dev에선 http://localhost:* (Vite/백엔드), 운영에선 mallangcore.magostar.com 호출을 허용한다.
+        새로운 백엔드 도메인이 추가되면 여기에 명시적으로 추가하거나, 빌드 시점에 치환되도록 바꾸자.
+      - script-src: Vite가 생성한 자체 번들만. unsafe-eval/unsafe-inline은 두지 않는다.
+      - style-src 'unsafe-inline': styled-components 런타임 주입을 허용하기 위함.
+      - img-src data:/blob:: Lottie/캔버스 등에서 inline 이미지를 만들 수 있게.
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:*"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:* https://mallangcore.magostar.com"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mallang Core</title>

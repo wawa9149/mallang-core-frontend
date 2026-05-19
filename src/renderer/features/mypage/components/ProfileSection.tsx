@@ -14,6 +14,7 @@ import { useUserProfileStore } from '../../../shared/stores/user-profile-store';
 import { signOutAndReturnToLogin } from '../../../shared/window/sign-out';
 import { NotificationToggle } from './NotificationToggle';
 import { OpenAiKeySection } from './OpenAiKeySection';
+import { TeamLocationSection } from './TeamLocationSection';
 
 const Form = styled.form`
   display: flex;
@@ -329,6 +330,7 @@ export function ProfileSection() {
         )}
       </SaveButton>
       <NotificationToggle />
+      <TeamLocationSection />
       <OpenAiKeySection />
       <SignOutButton type="button" onClick={handleSignOut}>
         로그아웃

@@ -1,0 +1,127 @@
+name: release
+
+# v*.*.* 형식의 태그를 푸시하면 macOS dmg + Windows installer를 만들어
+# 같은 이름의 GitHub Release에 자동으로 첨부한다.
+#
+# 발사 절차 (예: 0.1.1 릴리스):
+#   git tag v0.1.1
+#   git push origin v0.1.1
+#
+# 빌드 시점에 VITE_API_BASE_URL 이 인라인으로 박혀 들어가므로,
+# 운영 백엔드 도메인이 바뀌면 아래 env 값을 수정하고 새 태그를 푸시한다.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  # 디버깅/긴급 빌드용: 액션 페이지에서 수동으로도 돌릴 수 있게 열어 둔다.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '릴리스 태그 이름 (예: v0.1.1)'
+        required: true
+
+permissions:
+  contents: write # GitHub Release 생성/첨부에 필요
+
+env:
+  VITE_API_BASE_URL: https://mallangcore.magostar.com/api
+  PNPM_VERSION: 9.12.3
+  NODE_VERSION: '20'
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            # macos-latest는 Apple Silicon. Intel Mac 동료가 필요하면 macos-13 매트릭스를 하나 더 추가.
+            artifact_name: macos-arm64
+          - os: windows-latest
+            artifact_name: windows-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash # Windows에서도 bash로 통일 (echo BOM 회피)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Inject production API base URL
+        # Vite는 빌드 시점에 import.meta.env.VITE_API_BASE_URL 을 리터럴로 치환한다.
+        # 동시에 안전망으로 GitHub Actions env 도 노출되어 있어, 둘 중 어느 경로로든 빌드가 박는다.
+        run: echo "VITE_API_BASE_URL=${VITE_API_BASE_URL}" > .env.production
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build & make
+        run: pnpm make
+        env:
+          # electron-forge는 빌드 도중 Electron 바이너리를 받아오는데, GH Actions에서는 가끔 미러가 느리다.
+          # 명시적으로 공식 미러를 가리키면 일관된다.
+          ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
+
+      - name: List build artifacts (debug)
+        if: always()
+        run: |
+          echo '--- out/make tree ---'
+          find out/make -maxdepth 4 -type f | sort || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mallang-core-${{ matrix.artifact_name }}
+          if-no-files-found: error
+          # 각 OS에서 만들어지는 파일만 매칭되고 나머지는 자연스럽게 무시된다.
+          path: |
+            out/make/**/*.dmg
+            out/make/zip/darwin/**/*.zip
+            out/make/squirrel.windows/**/*.exe
+            out/make/squirrel.windows/**/*.nupkg
+            out/make/squirrel.windows/**/RELEASES
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p dist
+          find artifacts -type f \( \
+              -name '*.dmg' -o \
+              -name '*.zip' -o \
+              -name '*.exe' -o \
+              -name '*.nupkg' -o \
+              -name 'RELEASES' \
+            \) -exec cp -v {} dist/ \;
+          ls -la dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # workflow_dispatch에서 수동으로 돌릴 때는 입력값 tag, 태그 푸시일 때는 자동 인식.
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: dist/*

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import Lottie from 'lottie-react';
+import { useEffect, useState } from 'react';
 import styled, { css } from 'styled-components';
 import type {
   MallangPersona,
@@ -12,8 +13,13 @@ interface Props {
   state: MallangState;
   persona?: MallangPersona;
   size?: number;
+  /** 채팅 응답을 기다리는 동안 캐릭터가 살아있어 보이도록 켜는 플래그. */
+  isBusy?: boolean;
   onClick?: () => void;
 }
+
+/** 클릭 직후 캐릭터가 살짝 흔들리고 가라앉기까지 유지하는 시간. */
+const CLICK_ACTIVE_MS = 1200;
 
 const stateFilter: Record<MallangState, string> = {
   neutral: '',
@@ -89,7 +95,8 @@ const LottieBox = styled.div<{ $filter: string }>`
 export function MallangCharacter({
   state,
   persona = 'rest',
-  size = 220,
+  size = 280,
+  isBusy = false,
   onClick,
 }: Props) {
   const motionConfig = stateMotion[state];
@@ -97,8 +104,23 @@ export function MallangCharacter({
     .filter(Boolean)
     .join(' ');
 
+  // 평소엔 가만히 두고, 사용자 인터랙션(클릭) 직후와 응답 생성 중에만 부유 모션을 켠다.
+  const [clickActive, setClickActive] = useState(false);
+  useEffect(() => {
+    if (!clickActive) return;
+    const id = window.setTimeout(() => setClickActive(false), CLICK_ACTIVE_MS);
+    return () => window.clearTimeout(id);
+  }, [clickActive]);
+
+  const animating = clickActive || isBusy;
+
+  const handleClick = () => {
+    setClickActive(true);
+    onClick?.();
+  };
+
   return (
-    <Wrapper $size={size} onClick={onClick}>
+    <Wrapper $size={size} onClick={handleClick}>
       {state === 'happy' ? (
         <LottieBox
           $filter={personaFilter[persona] ?? ''}
@@ -112,16 +134,21 @@ export function MallangCharacter({
           src={mallangNeutral}
           alt="말랑이"
           draggable={false}
-          animate={{
-            y: motionConfig.yRange,
-            rotate: motionConfig.rotate,
-          }}
-          transition={{
-            duration: motionConfig.duration,
-            repeat: Infinity,
-            repeatType: 'mirror',
-            ease: 'easeInOut',
-          }}
+          animate={
+            animating
+              ? { y: motionConfig.yRange, rotate: motionConfig.rotate }
+              : { y: 0, rotate: 0 }
+          }
+          transition={
+            animating
+              ? {
+                  duration: motionConfig.duration,
+                  repeat: Infinity,
+                  repeatType: 'mirror',
+                  ease: 'easeInOut',
+                }
+              : { duration: 0.4, ease: 'easeOut' }
+          }
           whileTap={{ scale: 0.94 }}
         />
       )}

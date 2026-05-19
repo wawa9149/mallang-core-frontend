@@ -166,8 +166,23 @@ export function stopIntentScheduler(): void {
 }
 
 export function setSchedulerConfig(next: SchedulerConfigPayload): void {
+  // 이전 config의 시간 필드와 비교해, 시간이 바뀐 intent만 "오늘 이미 발사함" 기록에서 제거한다.
+  // 사용자가 시간을 명시적으로 변경했다는 건 그 intent의 흐름(예: 점심 알림 → 투표 창)을
+  // 다시 한 번 타고 싶다는 의도로 본다. 시간이 그대로면 기록을 유지해 중복 알림을 막는다.
+  const prev = config;
+  const clearable: ScheduledIntent[] = [];
+  if (prev) {
+    if (prev.workStartTime !== next.workStartTime)
+      clearable.push('morning_check');
+    if (prev.lunchTime !== next.lunchTime) {
+      clearable.push('lunch_alert', 'lunch_review');
+    }
+    if (prev.workEndTime !== next.workEndTime) clearable.push('evening_check');
+  }
+  for (const intent of clearable) firedToday.delete(intent);
+
   config = next;
-  // 시간 설정이 바뀌면 도래한 intent를 재확인.
+  // 시간 설정이 바뀌면 이미 도래한 intent를 즉시 채우고, 미래 시간이면 tick이 자연스럽게 잡는다.
   resumeCatchUp();
 }
 

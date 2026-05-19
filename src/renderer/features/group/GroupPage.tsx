@@ -144,16 +144,16 @@ export function GroupPage() {
             <VoteBody>
               {activeVote
                 ? activeVote.status === 'closed'
-                  ? `"${activeVote.title}" 투표가 마감됐어. 결과는 별창에서 확인하고, 거기서 새 투표도 시작할 수 있어.`
-                  : `"${activeVote.title}" 투표가 열려 있어. 별창에서 옵션 보기/투표/마감을 할 수 있어.`
-                : '점심 투표는 별창에서 만들고 진행해. 다른 팀원도 같은 창에서 볼 수 있어.'}
+                  ? `"${activeVote.title}" 투표가 마감됐어. 결과는 별창에서 확인할 수 있어.`
+                  : `"${activeVote.title}" 투표가 열려 있어. 별창에서 추천 식당 중에 하나를 골라 투표해 줘.`
+                : '점심 시간 10분 전이 되면 말랑이가 추천 식당으로 투표를 자동으로 열어. 미리 보고 싶으면 창을 열어 봐.'}
             </VoteBody>
             <OpenVoteButton type="button" onClick={handleOpenLunchVote}>
               {activeVote
                 ? activeVote.status === 'closed'
                   ? '결과 보기'
                   : '투표 창 열기'
-                : '새 투표 시작하기'}
+                : '점심 투표 창 열기'}
             </OpenVoteButton>
           </VoteCallout>
         )}
