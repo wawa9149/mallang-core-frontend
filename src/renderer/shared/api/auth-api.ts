@@ -2,7 +2,10 @@ import axios from 'axios';
 import type { AxiosError } from 'axios';
 import type { User } from '../../../shared/types/domain';
 import { useAuthStore } from '../stores/auth-store';
-import { applyAuthenticatedSession } from '../window/apply-session';
+import {
+  applyAuthenticatedSession,
+  hydrateProfileFromBackend,
+} from '../window/apply-session';
 import { http } from './http';
 import { toFrontendUser } from './mappers';
 import type { BackendPublicUser } from './types';
@@ -135,6 +138,8 @@ export async function login(
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
     });
+    // 로그인 사용자는 이미 백엔드에 프로필이 있으니 OnboardingFlow 로 빠지지 않도록 미리 채워둔다.
+    hydrateProfileFromBackend(data.user);
     return { user, raw: data.user };
   } catch (error) {
     throw toAuthError(error, 'WRONG_PASSWORD');
