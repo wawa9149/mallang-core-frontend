@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -170,6 +170,7 @@ function readErrorMessage(error: unknown): string {
 }
 
 export function ProfileSection() {
+  const queryClient = useQueryClient();
   const profile = useUserProfileStore((state) => state.profile);
   const setProfile = useUserProfileStore((state) => state.setProfile);
   const setUser = useAuthStore((state) => state.setUser);
@@ -212,6 +213,9 @@ export function ProfileSection() {
       setUser(user);
       setProfile(input);
       setSaved(true);
+      // 팀 이름이 새로 들어왔거나 바뀌면 TeamLocationSection 등이 보는
+      // team 관련 캐시를 즉시 갱신해 줘야 회사 위치 입력 폼이 곧바로 뜬다.
+      queryClient.invalidateQueries({ queryKey: ['team'] });
       // 시간 설정이 바뀌었을 가능성이 있으니 메인 프로세스 스케줄러에 최신 값을 전달한다.
       void syncSchedulerFromStores();
     },

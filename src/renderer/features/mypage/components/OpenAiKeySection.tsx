@@ -29,10 +29,14 @@ const HeaderTitle = styled.h3`
 `;
 
 const HeaderStatus = styled.span<{ $on: boolean }>`
+  padding: 2px 8px;
+  border-radius: 999px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 800;
   color: ${({ theme, $on }) =>
-    $on ? theme.colors.success : theme.brand.subtitle};
+    $on ? theme.colors.success : theme.colors.danger};
+  background: ${({ theme, $on }) =>
+    $on ? 'transparent' : theme.colors.dangerSurface};
 `;
 
 const Hint = styled.p`
@@ -40,6 +44,17 @@ const Hint = styled.p`
   font-size: 11px;
   line-height: 1.5;
   color: ${({ theme }) => theme.brand.subtitle};
+`;
+
+const WarningHint = styled.p`
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: ${({ theme }) => theme.colors.dangerSurface};
+  color: ${({ theme }) => theme.colors.danger};
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
 `;
 
 const Row = styled.div`
@@ -197,8 +212,16 @@ export function OpenAiKeySection() {
     <Card>
       <Header>
         <HeaderTitle>말랑이 두뇌 (OpenAI API 키)</HeaderTitle>
-        <HeaderStatus $on={hasKey}>{hasKey ? '연결됨' : '미연결'}</HeaderStatus>
+        <HeaderStatus $on={hasKey}>
+          {hasKey ? '연결됨' : '키 등록 필요'}
+        </HeaderStatus>
       </Header>
+      {!hasKey && !editing && (
+        <WarningHint>
+          OpenAI API 키가 아직 등록되어 있지 않아. 키가 없으면 말랑이 대화·요약
+          같은 두뇌 기능이 동작하지 않아.
+        </WarningHint>
+      )}
       {!hasKey || editing ? (
         <div>
           <Row>
