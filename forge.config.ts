@@ -22,6 +22,13 @@ const config: ForgeConfig = {
     new MakerSquirrel({
       name: 'mallang_core',
       setupExe: 'MallangCoreSetup.exe',
+      // Squirrel은 내부적으로 NuGet nuspec을 만드는데, package.json의 author/description이
+      // 비어 있으면 'Authors is required'로 실패한다. package.json에 넣어두는 게 우선이지만,
+      // 다른 메이커가 같이 돌 때 메타데이터가 흔들리지 않게 여기서도 못 박는다.
+      authors: 'Mallang Core Team',
+      owners: 'Mallang Core Team',
+      title: 'Mallang Core',
+      description: '회사에서의 하루를 함께하는 데스크탑 말랑이',
     }),
     new MakerDMG({ format: 'ULFO' }),
     new MakerZIP({}, ['darwin']),

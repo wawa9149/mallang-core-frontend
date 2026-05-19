@@ -3,6 +3,10 @@
   "productName": "Mallang Core",
   "version": "0.1.0",
   "description": "회사에서의 하루를 함께하는 데스크탑 말랑이",
+  "author": {
+    "name": "Mallang Core Team",
+    "email": "mallang-core@magostar.com"
+  },
   "private": true,
   "main": ".vite/build/main.js",
   "packageManager": "pnpm@9.12.3",
