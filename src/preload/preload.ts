@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   IPC_CHANNELS,
   type NotificationShowPayload,
+  type ProfileUpdatedPayload,
   type SchedulerConfigPayload,
   type SchedulerIntentFiredPayload,
 } from '../shared/ipc/channels';
@@ -53,6 +54,25 @@ const mallangBridge = {
   notification: {
     show: (payload: NotificationShowPayload) =>
       ipcRenderer.invoke(IPC_CHANNELS.NOTIFICATION.SHOW, payload),
+  },
+  profile: {
+    /** 마이페이지에서 저장 직후 호출. 메인이 다른 BrowserWindow 들에 변경을 전파해 준다. */
+    broadcastUpdated: (payload: ProfileUpdatedPayload) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROFILE.BROADCAST_UPDATED, payload),
+    /**
+     * 다른 창에서 프로필이 변경됐다는 신호를 받아 자기 store 를 동기화하기 위한 구독.
+     * 반환 함수를 호출하면 구독 해제된다.
+     */
+    onUpdated: (handler: (payload: ProfileUpdatedPayload) => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        payload: ProfileUpdatedPayload,
+      ) => handler(payload);
+      ipcRenderer.on(IPC_CHANNELS.PROFILE.UPDATED, listener);
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.PROFILE.UPDATED, listener);
+      };
+    },
   },
 } as const;
 

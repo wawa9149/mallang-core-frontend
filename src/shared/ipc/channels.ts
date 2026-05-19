@@ -1,3 +1,5 @@
+import type { UserProfile } from '../types/domain';
+
 /**
  * 메인/렌더러 사이에서 사용하는 IPC 채널 이름을 한 곳에서 관리한다.
  * preload는 contextBridge로 이 채널만 노출한다.
@@ -33,6 +35,15 @@ export const IPC_CHANNELS = {
     /** 렌더러 → 메인: OS 배너 알림 표시 요청. */
     SHOW: 'notification:show',
   },
+  PROFILE: {
+    /**
+     * 렌더러 → 메인: 사용자 프로필이 갱신됐다. 다른 BrowserWindow 들에게 전파해 달라고 요청.
+     * 같은 사용자의 zustand store 가 창마다 독립이라 한쪽에서 setProfile 해도 다른 창은 모른다.
+     */
+    BROADCAST_UPDATED: 'profile:broadcast-updated',
+    /** 메인 → 렌더러: 다른 창에서 프로필이 갱신됐다. 받은 쪽은 자기 store 를 즉시 동기화한다. */
+    UPDATED: 'profile:updated',
+  },
 } as const;
 
 export type ScheduledIntent =
@@ -65,8 +76,15 @@ export interface NotificationShowPayload {
   focusMallang?: boolean;
 }
 
+/**
+ * 프로필 전파 payload. 마이페이지에서 저장 직후 보낸 최신 UserProfile 을 그대로 실어 준다.
+ * 받는 쪽은 이 값으로 자기 zustand store(useUserProfileStore.profile)를 덮어쓰면 된다.
+ */
+export type ProfileUpdatedPayload = UserProfile;
+
 export type IpcChannel =
   | (typeof IPC_CHANNELS.WINDOW)[keyof typeof IPC_CHANNELS.WINDOW]
   | (typeof IPC_CHANNELS.APP)[keyof typeof IPC_CHANNELS.APP]
   | (typeof IPC_CHANNELS.SCHEDULER)[keyof typeof IPC_CHANNELS.SCHEDULER]
-  | (typeof IPC_CHANNELS.NOTIFICATION)[keyof typeof IPC_CHANNELS.NOTIFICATION];
+  | (typeof IPC_CHANNELS.NOTIFICATION)[keyof typeof IPC_CHANNELS.NOTIFICATION]
+  | (typeof IPC_CHANNELS.PROFILE)[keyof typeof IPC_CHANNELS.PROFILE];

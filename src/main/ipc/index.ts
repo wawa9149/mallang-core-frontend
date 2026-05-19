@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, Notification } from 'electron';
 import {
   IPC_CHANNELS,
   type NotificationShowPayload,
+  type ProfileUpdatedPayload,
   type SchedulerConfigPayload,
 } from '../../shared/ipc/channels';
 import {
@@ -90,6 +91,21 @@ export function registerIpcHandlers() {
   ipcMain.handle(IPC_CHANNELS.SCHEDULER.CLEAR, () => {
     clearSchedulerConfig();
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.PROFILE.BROADCAST_UPDATED,
+    (event, payload: ProfileUpdatedPayload) => {
+      // 같은 사용자의 zustand store 가 BrowserWindow 마다 독립이라,
+      // 한쪽 창에서 setProfile 해도 다른 창은 갱신되지 않는다.
+      // 보낸 창은 이미 자기 store 를 갱신했을 테니 본인은 제외하고 나머지 창에만 전파한다.
+      const senderId = event.sender.id;
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (win.isDestroyed()) continue;
+        if (win.webContents.id === senderId) continue;
+        win.webContents.send(IPC_CHANNELS.PROFILE.UPDATED, payload);
+      }
+    },
+  );
 
   ipcMain.handle(
     IPC_CHANNELS.NOTIFICATION.SHOW,
