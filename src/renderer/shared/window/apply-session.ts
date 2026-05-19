@@ -1,7 +1,5 @@
 import type { User } from '../../../shared/types/domain';
 import { useOnboardingStore } from '../../features/onboarding/onboarding-store';
-import { hobbyToPersona } from '../api/mappers';
-import { fetchTeamMembers } from '../api/teams-api';
 import type { BackendPublicUser } from '../api/types';
 import type { AuthTokens } from '../stores/auth-store';
 import { useAuthStore } from '../stores/auth-store';
@@ -38,37 +36,16 @@ export function applyAuthenticatedSession(
 }
 
 /**
- * 백엔드 user 응답을 UserProfile 로 변환해 store 에 채워 넣는다.
+ * 백엔드 user 응답을 보고 "이미 온보딩을 마친 사용자"인지 판단한다.
  *
- * 로그인 직후 호출하면 user-profile-store 가 비어 있어 MallangOverlayPage 가
- * OnboardingFlow 로 빠져버리는 문제를 막을 수 있다.
- * - team 이름은 BackendPublicUser 에 들어 있지 않아 별도 API 로 가져온다.
- *   비동기 호출 실패는 무시한다 (네트워크 일시 오류로 로그인 자체를 깨뜨릴 이유가 없다).
- * - signup 직후에는 호출하지 않는다. 신규 사용자는 OnboardingFlow 를 거치며 본인 값을 직접 입력해야 한다.
+ * 주의: 백엔드 signup 시 `name`이 비어 있으면 자동으로 이메일 prefix 로 채워지기 때문에
+ * `name` 단독 기준은 신규 가입자를 잘못된 onboarded 로 인식할 수 있다.
+ * 그래서 OnboardingFlow 의 PATCH 흐름에서만 채워지는 `teamId` 가 함께 존재하는지를 확인한다.
+ *  - name 만 있고 teamId 가 null → 가입만 한 상태(=OnboardingFlow 필요)
+ *  - name + teamId 둘 다 있음 → 이미 온보딩을 마침
  */
-export function hydrateProfileFromBackend(
-  backendUser: BackendPublicUser,
-): void {
-  useUserProfileStore.getState().setProfile({
-    name: backendUser.name,
-    team: '',
-    workStartTime: backendUser.workStartTime,
-    lunchTime: backendUser.lunchTime,
-    workEndTime: backendUser.workEndTime,
-    hobby: hobbyToPersona(backendUser.hobby),
-    allergies: backendUser.allergies ?? '',
-  });
-
-  if (!backendUser.teamId) return;
-  fetchTeamMembers()
-    .then((result) => {
-      if (result.team?.name) {
-        useUserProfileStore
-          .getState()
-          .updateProfile({ team: result.team.name });
-      }
-    })
-    .catch((error) => {
-      console.warn('[session] failed to hydrate team name', error);
-    });
+export function isUserOnboarded(backendUser: BackendPublicUser): boolean {
+  const hasName = backendUser.name.trim().length > 0;
+  const hasTeam = Boolean(backendUser.teamId);
+  return hasName && hasTeam;
 }

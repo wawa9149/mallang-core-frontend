@@ -4,8 +4,9 @@ import type { User } from '../../../shared/types/domain';
 import { useAuthStore } from '../stores/auth-store';
 import {
   applyAuthenticatedSession,
-  hydrateProfileFromBackend,
+  isUserOnboarded,
 } from '../window/apply-session';
+import { useMallangStore } from '../stores/mallang-store';
 import { http } from './http';
 import { toFrontendUser } from './mappers';
 import type { BackendPublicUser } from './types';
@@ -138,8 +139,23 @@ export async function login(
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
     });
-    // 로그인 사용자는 이미 백엔드에 프로필이 있으니 OnboardingFlow 로 빠지지 않도록 미리 채워둔다.
-    hydrateProfileFromBackend(data.user);
+    // 백엔드에 사용자 정보가 충분히 있으면 OnboardingFlow 는 건너뛰고 메인으로 직진한다.
+    // profile 은 마이페이지/필요 시점에 백엔드에서 따로 채우게 두고 여기선 분기 신호만 켠다.
+    const onboarded = isUserOnboarded(data.user);
+    if (import.meta.env.DEV) {
+      console.info(
+        '[auth] login response',
+        '| id=',
+        data.user.id,
+        '| name=',
+        JSON.stringify(data.user.name),
+        '| onboardedHeuristic=',
+        onboarded,
+      );
+    }
+    if (onboarded) {
+      useMallangStore.getState().setOnboarded(true);
+    }
     return { user, raw: data.user };
   } catch (error) {
     throw toAuthError(error, 'WRONG_PASSWORD');
