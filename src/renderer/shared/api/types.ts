@@ -84,6 +84,22 @@ export interface BackendRestaurantSyncResult {
 
 export type BackendVoteStatus = 'open' | 'closed';
 
+/**
+ * 옵션이 가리키는 식당의 표시용 메타데이터.
+ * 거리(distanceMeters)는 응답 시점의 회사 좌표 기준으로 백엔드가 매번 다시 계산해서 보낸다.
+ * 자유 입력 옵션이거나 식당이 삭제된 경우엔 옵션의 `restaurant`가 null이 된다.
+ */
+export interface BackendLunchVoteOptionRestaurant {
+  id: string;
+  name: string;
+  category: BackendRestaurantCategory;
+  priceTier: BackendPriceTier;
+  rating: number | null;
+  tags: string[];
+  address: string | null;
+  distanceMeters: number | null;
+}
+
 export interface BackendLunchVoteOption {
   id: string;
   label: string;
@@ -91,6 +107,10 @@ export interface BackendLunchVoteOption {
   restaurantId: string | null;
   voteCount: number;
   voters: { id: string; name: string }[];
+  /** 결정론 추천이 만든 한 줄 사유. 자유 입력 옵션은 null. */
+  reason: string | null;
+  /** 옵션 연결 식당의 표시용 메타. 자유 입력/식당 삭제 시 null. */
+  restaurant: BackendLunchVoteOptionRestaurant | null;
 }
 
 export interface BackendLunchVote {

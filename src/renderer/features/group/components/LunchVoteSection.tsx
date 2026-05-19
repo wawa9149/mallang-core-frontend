@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import {
   castLunchVote,
@@ -9,6 +10,9 @@ import {
 } from '../../../shared/api/lunch-votes-api';
 import type {
   BackendLunchVote,
+  BackendLunchVoteOption,
+  BackendPriceTier,
+  BackendRestaurantCategory,
   BackendTeamMembers,
 } from '../../../shared/api/types';
 
@@ -95,9 +99,9 @@ const OptionInner = styled.button<{ $selected?: boolean }>`
   z-index: 1;
   width: 100%;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
   padding: 10px 12px;
   background: transparent;
   border: none;
@@ -111,25 +115,113 @@ const OptionInner = styled.button<{ $selected?: boolean }>`
   }
 `;
 
+/** 옵션의 첫 행. 식당 이름 + 가격대 뱃지 (왼쪽) / 득표수 (오른쪽). */
+const OptionTopRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+`;
+
 const OptionLabel = styled.span<{ $selected?: boolean }>`
   font-size: 13px;
   font-weight: ${({ $selected }) => ($selected ? 800 : 600)};
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
 `;
 
 const VoteCount = styled.span`
   font-size: 12px;
   font-weight: 700;
   color: ${({ theme }) => theme.brand.subtitle};
+  flex-shrink: 0;
+`;
+
+/** 카테고리 · 거리 · 평점 같은 짧은 메타 정보 한 줄. */
+const OptionMeta = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.brand.subtitle};
+`;
+
+const MetaDot = styled.span`
+  color: ${({ theme }) => theme.brand.subtitle};
+  opacity: 0.5;
+`;
+
+/** 결정론 추천이 남긴 한 줄 사유. 자유 입력 옵션이거나 사유가 없으면 숨김. */
+const OptionReason = styled.p`
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.brand.subtitle};
+  line-height: 1.45;
 `;
 
 const Voters = styled.span`
   font-size: 11px;
   font-weight: 500;
   color: ${({ theme }) => theme.brand.subtitle};
-  margin-left: 6px;
+`;
+
+/**
+ * 가격대 뱃지. low/mid/high 모두 동일한 스타일 베이스 위에 색만 달리해서 표시한다.
+ * 색 자체로 뜻을 전달하기보다는 "라벨 + 색 힌트"로 보조 역할만 한다.
+ */
+const PriceBadge = styled.span<{ $tier: BackendPriceTier }>`
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  flex-shrink: 0;
+
+  background: ${({ theme, $tier }) => {
+    switch ($tier) {
+      case 'low':
+        return theme.colors.successSurface;
+      case 'high':
+        return theme.colors.dangerSurface;
+      default:
+        return theme.colors.surfaceMuted;
+    }
+  }};
+  color: ${({ theme, $tier }) => {
+    switch ($tier) {
+      case 'low':
+        return theme.colors.success;
+      case 'high':
+        return theme.colors.danger;
+      default:
+        return theme.colors.textMuted;
+    }
+  }};
+`;
+
+/** 옵션 리스트 하단에 가격대 뱃지 의미를 짧게 설명. */
+const PriceLegend = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.brand.subtitle};
+  padding: 4px 2px 0;
+`;
+
+const PriceLegendItem = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 `;
 
 const Footer = styled.footer`
@@ -414,21 +506,43 @@ function ActiveVoteCard({
                 disabled={castMutation.isPending || lockInteractions}
                 onClick={() => castMutation.mutate(option.id)}
               >
-                <OptionLabel $selected={selected || isWinner}>
-                  {isWinner ? <CrownIcon /> : selected && <CheckIcon />}
-                  {option.label}
-                  {option.voters.length > 0 && (
-                    <Voters>
-                      ({option.voters.map((v) => v.name).join(', ')})
-                    </Voters>
-                  )}
-                </OptionLabel>
-                <VoteCount>{option.voteCount}</VoteCount>
+                <OptionTopRow>
+                  <OptionLabel $selected={selected || isWinner}>
+                    {isWinner ? <CrownIcon /> : selected && <CheckIcon />}
+                    {option.label}
+                    {option.restaurant && (
+                      <PriceBadge $tier={option.restaurant.priceTier}>
+                        {formatPriceTier(option.restaurant.priceTier)}
+                      </PriceBadge>
+                    )}
+                  </OptionLabel>
+                  <VoteCount>{option.voteCount}</VoteCount>
+                </OptionTopRow>
+                <OptionMetaLine option={option} />
+                {option.reason && <OptionReason>{option.reason}</OptionReason>}
+                {option.voters.length > 0 && (
+                  <Voters>
+                    ({option.voters.map((v) => v.name).join(', ')})
+                  </Voters>
+                )}
               </OptionInner>
             </OptionRow>
           );
         })}
       </OptionList>
+      {hasAnyRestaurantMeta(vote.options) && (
+        <PriceLegend>
+          <PriceLegendItem>
+            <PriceBadge $tier="low">저렴</PriceBadge> 1만원 이하
+          </PriceLegendItem>
+          <PriceLegendItem>
+            <PriceBadge $tier="mid">보통</PriceBadge> 1~2만원
+          </PriceLegendItem>
+          <PriceLegendItem>
+            <PriceBadge $tier="high">비쌈</PriceBadge> 2만원 이상
+          </PriceLegendItem>
+        </PriceLegend>
+      )}
       {isClosed && winnerOption && (
         <WinnerBanner>
           <CrownIcon />
@@ -483,6 +597,86 @@ function formatRemaining(ms: number): string {
   const s = total % 60;
   if (m > 0) return `${m}:${s.toString().padStart(2, '0')}`;
   return `${s}초`;
+}
+
+/**
+ * 옵션의 메타 한 줄(카테고리 · 거리 · 평점)을 렌더링한다.
+ * 자유 입력 옵션처럼 식당 정보가 없으면 아무것도 그리지 않는다.
+ */
+function OptionMetaLine({ option }: { option: BackendLunchVoteOption }) {
+  const restaurant = option.restaurant;
+  if (!restaurant) return null;
+
+  const parts: { key: string; node: ReactNode }[] = [];
+  parts.push({
+    key: 'category',
+    node: formatCategory(restaurant.category),
+  });
+  if (restaurant.distanceMeters !== null) {
+    parts.push({
+      key: 'distance',
+      node: formatDistance(restaurant.distanceMeters),
+    });
+  }
+  if (restaurant.rating !== null) {
+    parts.push({
+      key: 'rating',
+      node: `★ ${restaurant.rating.toFixed(1)}`,
+    });
+  }
+
+  return (
+    <OptionMeta>
+      {parts.map((part, index) => (
+        <Fragment key={part.key}>
+          {index > 0 && <MetaDot>·</MetaDot>}
+          <span>{part.node}</span>
+        </Fragment>
+      ))}
+    </OptionMeta>
+  );
+}
+
+/** 옵션 리스트에 식당 메타가 하나라도 있을 때만 가격 범례를 노출한다. */
+function hasAnyRestaurantMeta(options: BackendLunchVoteOption[]): boolean {
+  return options.some((option) => option.restaurant !== null);
+}
+
+function formatPriceTier(tier: BackendPriceTier): string {
+  switch (tier) {
+    case 'low':
+      return '저렴';
+    case 'high':
+      return '비쌈';
+    default:
+      return '보통';
+  }
+}
+
+function formatCategory(category: BackendRestaurantCategory): string {
+  switch (category) {
+    case 'korean':
+      return '한식';
+    case 'japanese':
+      return '일식';
+    case 'chinese':
+      return '중식';
+    case 'western':
+      return '양식';
+    case 'asian':
+      return '아시안';
+    case 'snack':
+      return '분식';
+    case 'cafe':
+      return '브런치/카페';
+    default:
+      return '기타';
+  }
+}
+
+function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)}m`;
+  return `${(meters / 1000).toFixed(1)}km`;
 }
 
 function CrownIcon() {
