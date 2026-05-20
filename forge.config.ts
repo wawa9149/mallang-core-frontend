@@ -1,3 +1,5 @@
+import { execSync } from 'node:child_process';
+import path from 'node:path';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
@@ -18,6 +20,23 @@ const config: ForgeConfig = {
     icon: 'src/renderer/assets/icons/app',
   },
   rebuildConfig: {},
+  hooks: {
+    // packager 가 아이콘 적용·FusesPlugin 패치까지 끝낸 직후의 .app 을 ad-hoc('-') 으로 다시
+    // 서명한다. packagerConfig.osxSign 은 @electron/packager 18+ 와의 조합에서 종종 무시되어
+    // _CodeSignature 가 비어 있는 상태로 만들기 때문에, 이 hook 으로 직접 codesign 을 호출해
+    // 'Mallang Core" is damaged' / 'invalid Info.plist' 에러를 막는다.
+    // Apple Developer ID 를 받으면 '-' 자리에 실제 identity 를 넣고 entitlements / --options
+    // runtime 옵션을 함께 추가한다.
+    postPackage: async (_forgeConfig, packageResult) => {
+      if (packageResult.platform !== 'darwin') return;
+      for (const outputPath of packageResult.outputPaths) {
+        const appPath = path.join(outputPath, 'Mallang Core.app');
+        execSync(`codesign --force --deep --sign - "${appPath}"`, {
+          stdio: 'inherit',
+        });
+      }
+    },
+  },
   makers: [
     new MakerSquirrel({
       name: 'mallang_core',
