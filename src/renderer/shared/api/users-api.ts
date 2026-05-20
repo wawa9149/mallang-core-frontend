@@ -12,6 +12,8 @@ export interface UpdateMeInput {
   allergies?: string;
   companyName?: string;
   teamName?: string;
+  /** 말랑이 발화 TTS 사용 여부. 마이페이지 토글에서 즉시 PATCH 한다. */
+  ttsEnabled?: boolean;
 }
 
 export async function setOpenAiKey(
@@ -44,6 +46,7 @@ export async function updateMe(
   if (input.allergies !== undefined) payload.allergies = input.allergies;
   if (input.companyName !== undefined) payload.companyName = input.companyName;
   if (input.teamName !== undefined) payload.teamName = input.teamName;
+  if (input.ttsEnabled !== undefined) payload.ttsEnabled = input.ttsEnabled;
 
   const { data } = await http.patch<BackendPublicUser>('/users/me', payload);
   return { user: toFrontendUser(data), raw: data };

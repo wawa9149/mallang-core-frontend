@@ -15,6 +15,7 @@ import { signOutAndReturnToLogin } from '../../../shared/window/sign-out';
 import { NotificationToggle } from './NotificationToggle';
 import { OpenAiKeySection } from './OpenAiKeySection';
 import { TeamLocationSection } from './TeamLocationSection';
+import { TtsToggle } from './TtsToggle';
 
 const Form = styled.form`
   display: flex;
@@ -341,6 +342,7 @@ export function ProfileSection() {
         )}
       </SaveButton>
       <NotificationToggle />
+      <TtsToggle />
       <TeamLocationSection />
       <OpenAiKeySection />
       <SignOutButton type="button" onClick={handleSignOut}>

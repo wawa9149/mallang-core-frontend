@@ -1,4 +1,5 @@
 import { useOnboardingStore } from '../../features/onboarding/onboarding-store';
+import { mallangTtsPlayer } from '../audio/tts-player';
 import { clearScheduler } from '../scheduler/sync';
 import { useAuthStore } from '../stores/auth-store';
 import { useMallangStore } from '../stores/mallang-store';
@@ -18,6 +19,8 @@ export async function signOutAndReturnToLogin(): Promise<void> {
     );
   }
 
+  // 진행 중이던 말랑이 발화 음성도 함께 끈다(다른 사용자가 곧 로그인할 수 있으니 즉시 중단).
+  mallangTtsPlayer.stop();
   useAuthStore.getState().signOut();
   useUserProfileStore.getState().clearProfile();
   useOnboardingStore.getState().reset();

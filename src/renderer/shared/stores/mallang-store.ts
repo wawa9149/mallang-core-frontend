@@ -12,9 +12,12 @@ import type {
  * setBubble 옵션.
  * - persistent: true면 말풍선이 자동으로 사라지지 않는다. 말랑이가 먼저 던지는 질문처럼
  *   사용자 응답이 와야 의미가 있는 발화에 사용한다. 다음 setBubble 호출 시 다시 false로 돌아간다.
+ * - mute: true면 자막(말풍선) 만 띄우고 TTS 발화는 하지 않는다.
+ *   마이크 녹음 시작 안내처럼 사용자가 응답하기 전에 말랑이가 소리내어 말하면 어색한 경우에 사용.
  */
 export interface SetBubbleOptions {
   persistent?: boolean;
+  mute?: boolean;
 }
 
 interface MallangStoreState {
@@ -27,6 +30,12 @@ interface MallangStoreState {
    * - 사용자가 다른 발화/클릭으로 말풍선을 갱신하면 자동으로 false 로 풀린다.
    */
   bubblePersistent: boolean;
+  /**
+   * 현재 recentBubble 을 TTS 로 발화할지 여부.
+   * - 마이크 녹음 안내처럼 자막만 띄우고 싶을 때 true 로 세팅한다.
+   * - 다음 setBubble 호출마다 옵션 명시에 따라 다시 평가된다(=기본은 false 로 리셋).
+   */
+  bubbleMute: boolean;
   setState: (next: MallangState) => void;
   setPersona: (persona: MallangPersona) => void;
   setBubble: (message: string | null, options?: SetBubbleOptions) => void;
@@ -37,6 +46,7 @@ export const useMallangStore = create<MallangStoreState>((set) => ({
   persona: 'rest',
   recentBubble: null,
   bubblePersistent: false,
+  bubbleMute: false,
   setState: (next) => set({ state: next }),
   setPersona: (persona) => set({ persona }),
   setBubble: (message, options) =>
@@ -45,5 +55,6 @@ export const useMallangStore = create<MallangStoreState>((set) => ({
       // 호출자가 명시한 옵션을 그대로 따른다. 호출 시점마다 persistent 가 리셋되어
       // 사용자가 새 발화를 던지면 자동 사라짐 룰이 다시 적용된다.
       bubblePersistent: options?.persistent ?? false,
+      bubbleMute: options?.mute ?? false,
     }),
 }));

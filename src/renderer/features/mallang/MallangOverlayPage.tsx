@@ -15,7 +15,11 @@ import bgWorkout from '../../assets/backgrounds/workout.png';
 import { fetchMe } from '../../shared/api/auth-api';
 import { sendChat, triggerScheduledPrompt } from '../../shared/api/chats-api';
 import { hobbyToPersona } from '../../shared/api/mappers';
+import { transcribeAudio } from '../../shared/api/stt-api';
+import { fetchTeamMembers } from '../../shared/api/teams-api';
 import type { BackendChatIntent, BackendEmotion } from '../../shared/api/types';
+import { mallangTtsPlayer } from '../../shared/audio/tts-player';
+import { useVoiceRecorder } from '../../shared/audio/use-voice-recorder';
 import { syncSchedulerFromStores } from '../../shared/scheduler/sync';
 import { useAuthStore } from '../../shared/stores/auth-store';
 import { useMallangStore } from '../../shared/stores/mallang-store';
@@ -283,21 +287,25 @@ const PromptInput = styled.input`
   }
 `;
 
-const MicButton = styled.button`
+const MicButton = styled.button<{ $recording?: boolean }>`
   width: 44px;
   height: 44px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: ${({ theme }) => theme.brand.promptBg};
-  color: ${({ theme }) => theme.brand.promptText};
+  background: ${({ theme, $recording }) =>
+    $recording ? '#e53e3e' : theme.brand.promptBg};
+  color: ${({ theme, $recording }) =>
+    $recording ? '#fff' : theme.brand.promptText};
   display: grid;
   place-items: center;
+  position: relative;
   transition:
     background-color 160ms ease,
     transform 120ms ease;
 
   &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.brand.primaryHover};
+    background: ${({ theme, $recording }) =>
+      $recording ? '#c53030' : theme.brand.primaryHover};
   }
 
   &:active:not(:disabled) {
@@ -313,6 +321,26 @@ const MicButton = styled.button`
     width: 18px;
     height: 18px;
   }
+
+  /* 녹음 중일 때 부드러운 펄스로 사용자에게 활성 상태를 알린다. */
+  ${({ $recording }) =>
+    $recording
+      ? `
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid rgba(229, 62, 62, 0.55);
+      animation: mallang-mic-pulse 1.2s ease-out infinite;
+      pointer-events: none;
+    }
+    @keyframes mallang-mic-pulse {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      100% { transform: scale(1.25); opacity: 0; }
+    }
+  `
+      : ''}
 `;
 
 function MicIcon() {
@@ -340,19 +368,32 @@ export function MallangOverlayPage() {
     persona,
     recentBubble,
     bubblePersistent,
-    isOnboarded,
+    bubbleMute,
     setBubble,
   } = useMallangStore();
   const setMallangState = useMallangStore((s) => s.setState);
   const profile = useUserProfileStore((s) => s.profile);
   const setProfile = useUserProfileStore((s) => s.setProfile);
-  const updateProfile = useUserProfileStore((s) => s.updateProfile);
   const setUser = useAuthStore((s) => s.setUser);
-  const onboardingComplete = isOnboarded || profile !== null;
+  const authedUser = useAuthStore((s) => s.user);
+  // 진실의 출처는 백엔드 user.onboardedAt.
+  // useAuthStore 는 persist + storage 이벤트 동기화가 이미 걸려 있어 멀티 윈도우에서도 즉시 따라간다.
+  // profile 이 채워져 있다면 로컬에서 이미 사용 중이라는 뜻이므로 별도 신호로도 인정한다.
+  const onboardingComplete =
+    Boolean(authedUser?.onboardedAt) || profile !== null;
   const effectivePersona = profile?.hobby ?? persona;
   const [prompt, setPrompt] = useState('');
   const [isComposing, setIsComposing] = useState(false);
+  // 음성 인식 호출이 진행 중인 동안(STT 업스트림 대기) MicButton 을 잠가 둔다.
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const voiceRecorder = useVoiceRecorder();
   const meSyncedRef = useRef(false);
+  /**
+   * GET /auth/me 로 서버 진실(onboardedAt 포함) 을 확인한 뒤에야 true 가 된다.
+   * useAuthStore 가 persist 로 user 를 복원하긴 하지만, 다른 창에서 PATCH 가 일어났을
+   * 경우의 lag 를 막기 위해 fetchMe 응답을 기다린 뒤에야 OnboardingFlow 분기를 허용한다.
+   */
+  const [meSynced, setMeSynced] = useState(false);
   const greetedRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   /**
@@ -446,6 +487,56 @@ export function MallangOverlayPage() {
     return () => clearTimeout(timer);
   }, [recentBubble, bubblePersistent, chatMutation.isPending, setBubble]);
 
+  // 말풍선이 의미 있는 텍스트로 바뀔 때마다 Clova Voice TTS 로 함께 들려준다.
+  // - 사용자가 마이페이지에서 토글을 꺼 두면 백엔드가 403 으로 응답하므로 자연스럽게 silent 가 된다.
+  // - '…' 같은 로딩 placeholder 는 발화하지 않는다.
+  // - 같은 발화에 중복 트리거되지 않도록 마지막으로 발화한 텍스트를 ref 로 추적한다.
+  const lastSpokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!recentBubble) {
+      return;
+    }
+    if (recentBubble === '…') {
+      return;
+    }
+    if (lastSpokenRef.current === recentBubble) {
+      console.info(
+        '[mallang] tts skip — same bubble already spoken',
+        recentBubble.slice(0, 30),
+      );
+      return;
+    }
+    // 자막은 띄우되 발화는 하지 말라고 명시한 안내(마이크 녹음 시작 안내 등).
+    // 추후 같은 텍스트가 다시 들어와도 발화하지 않도록 lastSpokenRef 를 미리 박아 둔다.
+    if (bubbleMute) {
+      console.info(
+        '[mallang] tts skip — bubble marked as mute',
+        recentBubble.slice(0, 30),
+      );
+      lastSpokenRef.current = recentBubble;
+      return;
+    }
+    // store 가 다른 창에서 갱신됐을 수 있으니, 매 발화마다 persist 를 최신화한 뒤 본다.
+    void useAuthStore.persist?.rehydrate?.();
+    const user = useAuthStore.getState().user;
+    if (!user?.ttsEnabled) {
+      console.info(
+        `[mallang] tts skip — toggle off (user.ttsEnabled=${user?.ttsEnabled ?? 'no-user'})`,
+      );
+      return;
+    }
+    console.info(
+      '[mallang] tts trigger',
+      recentBubble.slice(0, 30),
+      `ttsEnabled=${user.ttsEnabled}`,
+    );
+    lastSpokenRef.current = recentBubble;
+    void mallangTtsPlayer.speak(recentBubble);
+  }, [recentBubble, bubbleMute]);
+
+  // 창이 닫히면 진행 중이던 음성도 정리한다.
+  useEffect(() => () => mallangTtsPlayer.stop(), []);
+
   // 앱에 접속한 직후 말랑이가 먼저 인사를 건넨다.
   // - 한 세션 동안 한 번만 발사하기 위해 ref 로 가드한다.
   // - fetchMe 가 끝나기 전이라도 useAuthStore.user.name 은 로그인 응답에서 이미 채워져 있어 그대로 쓴다.
@@ -496,47 +587,63 @@ export function MallangOverlayPage() {
   useEffect(() => {
     if (meSyncedRef.current) return;
     meSyncedRef.current = true;
-    fetchMe()
-      .then(({ user, raw }) => {
+    void (async () => {
+      try {
+        const { user, raw } = await fetchMe();
+        // setUser 호출만으로 useAuthStore.user.onboardedAt 이 갱신되어, 다음 렌더에서
+        // onboardingComplete 분기가 자동으로 결정된다. 별도 플래그를 따로 켜 줄 필요가 없다.
         setUser(user);
-        // 백엔드 user 응답 기준으로 "온보딩을 마친 사용자"인지 재확인한다.
-        // login 호출 시점에 setOnboarded(true) 가 누락됐거나, 자동 로그인 경로(앱 재시작)
-        // 처럼 login 함수 자체를 거치지 않은 경우에도 여기서 보정해 OnboardingFlow 를 건너뛴다.
-        const onboarded = raw.name.trim().length > 0 && Boolean(raw.teamId);
         if (import.meta.env.DEV) {
           console.info(
             '[mallang] /auth/me sync — name=',
             JSON.stringify(raw.name),
             'teamId=',
             raw.teamId,
-            'onboarded=',
-            onboarded,
+            'onboardedAt=',
+            raw.onboardedAt,
           );
         }
-        if (onboarded && !useMallangStore.getState().isOnboarded) {
-          useMallangStore.getState().setOnboarded(true);
+
+        // 팀 이름은 BackendPublicUser 에 포함되지 않으므로 teamId 가 있으면 한 번 더 조회한다.
+        // 실패해도 다른 필드 동기화는 그대로 진행한다 — 팀 이름만 빈 값으로 떨어진다.
+        let teamName = '';
+        if (raw.teamId) {
+          try {
+            const members = await fetchTeamMembers();
+            teamName = members.team?.name ?? '';
+          } catch (error) {
+            if (import.meta.env.DEV) {
+              console.warn('[mallang] /teams/me/members sync failed', error);
+            }
+          }
         }
-        const currentProfile = useUserProfileStore.getState().profile;
-        if (currentProfile) {
-          updateProfile({
-            name: raw.name,
-            workStartTime: raw.workStartTime,
-            lunchTime: raw.lunchTime,
-            workEndTime: raw.workEndTime,
-            hobby: hobbyToPersona(raw.hobby),
-            allergies: raw.allergies ?? '',
-          });
-        }
-      })
-      .catch((error) => {
+
+        const nextProfile = {
+          name: raw.name ?? '',
+          team: teamName,
+          workStartTime: raw.workStartTime,
+          lunchTime: raw.lunchTime,
+          workEndTime: raw.workEndTime,
+          hobby: hobbyToPersona(raw.hobby),
+          allergies: raw.allergies ?? '',
+        };
+
+        // store 가 비어 있을 수도 있고(=로그아웃 직후 다시 로그인) 이전 세션 값이 남아 있을 수도 있다.
+        // 어느 쪽이든 서버 진실로 한 번 덮어써, 마이페이지 폼이 빈 칸으로 노출되는 일을 막는다.
+        // setProfile 은 전체 덮어쓰기, updateProfile 은 merge 인데 우리는 이미 모든 필드를 채워 들어가므로
+        // 어떤 경우든 setProfile 한 번이면 충분하다.
+        useUserProfileStore.getState().setProfile(nextProfile);
+      } catch (error) {
         if (import.meta.env.DEV) {
           console.warn('[mallang] /auth/me sync failed', error);
         }
-      })
-      .finally(() => {
+      } finally {
+        // 서버 진실을 한 번이라도 확인했음을 표시해, 이후 분기에서 OnboardingFlow 로 안전하게 보낼 수 있게 한다.
+        setMeSynced(true);
         // 프로필이 준비된 직후 메인 프로세스 스케줄러에 시간 설정을 전달해 둔다.
         void syncSchedulerFromStores();
-      });
+      }
+    })();
     // 마운트 한 번만 실행. profile/store 핸들은 effect 안에서 최신 값을 참조해도 무방.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -580,10 +687,15 @@ export function MallangOverlayPage() {
     setBubble(pickClickMessage(state));
   };
 
-  const sendPrompt = () => {
-    const value = prompt.trim();
+  /**
+   * @param override 음성 인식 결과처럼 입력창과 무관하게 외부에서 들어온 발화. 비우면 prompt state 를 사용한다.
+   */
+  const sendPrompt = (override?: string) => {
+    const raw = override ?? prompt;
+    const value = raw.trim();
     if (!value || chatMutation.isPending) return;
-    setPrompt('');
+    // 입력창에서 보낸 경우에만 입력창을 비운다. 음성 발화는 입력창과 별개라 건드리지 않는다.
+    if (override === undefined) setPrompt('');
     setBubble('…');
     // 스케줄러 first-turn 으로 받은 질문에 사용자가 처음 답하는 경우라면,
     // 같은 intent 로 백엔드에 보내 leftOffice 같은 평가를 받게 한다.
@@ -605,9 +717,65 @@ export function MallangOverlayPage() {
     }
   };
 
-  const handleMicClick = () => {
-    // TODO: 음성 입력(녹음→텍스트) 연결
-    setBubble('음성 입력은 곧 만들 거야!');
+  /**
+   * 마이크 버튼 토글.
+   * - 녹음 중이 아니면 녹음 시작 (권한 요청 포함).
+   * - 녹음 중이면 녹음 종료 → 매고보이스로 STT → 결과를 sendPrompt 로 전달.
+   *
+   * 어느 단계에서든 실패하면 말풍선으로 안내하고 다음 발화를 막지 않도록 자원을 정리한다.
+   */
+  const handleMicClick = async () => {
+    if (isTranscribing) return;
+    if (!voiceRecorder.isSupported) {
+      setBubble('이 환경에선 음성 입력을 쓸 수 없어.');
+      return;
+    }
+
+    if (!voiceRecorder.isRecording) {
+      // 진행 중이던 TTS 발화가 있으면 마이크 입력에 그 소리가 섞이지 않도록 즉시 끊는다.
+      mallangTtsPlayer.stop();
+      try {
+        await voiceRecorder.start();
+        // 자막은 띄우되 TTS 로 발화하지는 않는다(사용자가 답하기도 전에 말랑이가 말을 거는 어색함 방지).
+        setBubble('듣고 있어… 다 말하면 마이크를 다시 눌러 줘.', {
+          persistent: true,
+          mute: true,
+        });
+      } catch (error) {
+        console.warn('[mallang] mic start failed', error);
+        const message = (error as { name?: string } | null)?.name;
+        if (message === 'NotAllowedError' || message === 'SecurityError') {
+          setBubble('마이크 권한이 필요해. 시스템 설정에서 허용해 줘.');
+        } else if (message === 'NotFoundError') {
+          setBubble('마이크를 찾지 못했어. 장치 연결을 확인해 줘.');
+        } else {
+          setBubble('마이크를 켜지 못했어.');
+        }
+      }
+      return;
+    }
+
+    // 녹음 종료 → STT 호출.
+    setIsTranscribing(true);
+    setBubble('…');
+    try {
+      const blob = await voiceRecorder.stop();
+      if (!blob || blob.size === 0) {
+        setBubble('녹음된 음성이 없어. 다시 시도해 줘.');
+        return;
+      }
+      const text = (await transcribeAudio(blob)).trim();
+      if (!text) {
+        setBubble('잘 못 들었어. 다시 말해 줄래?');
+        return;
+      }
+      sendPrompt(text);
+    } catch (error) {
+      console.error('[mallang] transcribe failed', error);
+      setBubble('음성을 알아듣지 못했어. 잠시 후 다시 시도해 줘.');
+    } finally {
+      setIsTranscribing(false);
+    }
   };
 
   const handleOpenMyPage = () => {
@@ -624,6 +792,11 @@ export function MallangOverlayPage() {
     : null;
 
   if (!onboardingComplete) {
+    // 서버 진실(onboardedAt) 을 한 번도 확인하지 못한 상태라면 OnboardingFlow 로 바로 보내지 않는다.
+    // 다른 창에서 막 PATCH 가 끝났는데 이쪽 user 가 stale 인 케이스에서 잘못된 온보딩 노출을 막는다.
+    if (!meSynced) {
+      return <Overlay $bgUrl={null} />;
+    }
     return (
       <Overlay $bgUrl={null}>
         <OnboardingFlow />
@@ -715,8 +888,21 @@ export function MallangOverlayPage() {
         <MicButton
           type="button"
           onClick={handleMicClick}
-          aria-label="음성으로 말 걸기"
-          title="음성 입력 (곧 추가될 예정)"
+          disabled={isTranscribing || chatMutation.isPending}
+          $recording={voiceRecorder.isRecording}
+          aria-label={
+            voiceRecorder.isRecording
+              ? '녹음 종료하고 보내기'
+              : '음성으로 말 걸기'
+          }
+          aria-pressed={voiceRecorder.isRecording}
+          title={
+            isTranscribing
+              ? '음성 인식 중…'
+              : voiceRecorder.isRecording
+                ? '녹음 종료하고 보내기'
+                : '음성으로 말 걸기'
+          }
         >
           <MicIcon />
         </MicButton>

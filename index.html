@@ -9,10 +9,13 @@
       - script-src: Vite가 생성한 자체 번들만. unsafe-eval/unsafe-inline은 두지 않는다.
       - style-src 'unsafe-inline': styled-components 런타임 주입을 허용하기 위함.
       - img-src data:/blob:: Lottie/캔버스 등에서 inline 이미지를 만들 수 있게.
+      - media-src 'self' blob:: 백엔드 /tts/speak 로 받은 mp3 binary 를 ObjectURL 로 만들어
+        HTMLAudioElement 에 흘려 보내기 위한 허용. 명시하지 않으면 default-src 가 fallback 으로
+        잡혀 blob: URL 이 차단된다(Refused to load media from 'blob:…').
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:* https://mallangcore.magostar.com"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:* https://mallangcore.magostar.com"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mallang Core</title>

@@ -62,6 +62,10 @@ export function createMallangWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Chrome 기본 autoplay 정책은 user gesture 가 없으면 HTMLAudioElement.play() 를
+      // NotAllowedError 로 막아 버린다. 말랑이 자동 인사처럼 사용자 클릭 없이 발화하는
+      // 케이스에서 TTS 가 silent 로 끊기는 원인이 되므로 명시적으로 풀어 둔다.
+      autoplayPolicy: 'no-user-gesture-required',
     },
   });
 
