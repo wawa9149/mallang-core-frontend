@@ -104,6 +104,13 @@ export interface BackendLunchVoteOptionRestaurant {
    * null 이면 프론트는 이름/주소 검색 URL 로 폴백한다.
    */
   placeUrl: string | null;
+  /**
+   * 식당 대표 이미지 URL. 현재 백엔드 응답에는 포함되지 않을 수 있고(opt-in),
+   * 향후 카카오 외부 이미지 등을 채워 보낼 경우를 대비해 옵셔널로 둔다.
+   * 그룹 페이지 우승 카드에서 이미지로 렌더하고, 없으면 식당 이름 텍스트로 폴백한다.
+   * 외부 도메인 이미지를 띄우려면 index.html 의 CSP img-src 에 해당 도메인 추가 필요.
+   */
+  imageUrl?: string | null;
 }
 
 export interface BackendLunchVoteOption {
@@ -143,6 +150,9 @@ export type BackendRestaurantCategory =
   | 'asian'
   | 'snack'
   | 'cafe'
+  // 디저트·베이커리·한과류. 백엔드 추천에서는 hard filter 로 제외되지만,
+  // 직접 조회 등 다른 경로로 내려올 수 있어 타입에는 정의해 둔다.
+  | 'dessert'
   | 'etc';
 
 export type BackendPriceTier = 'low' | 'mid' | 'high';
