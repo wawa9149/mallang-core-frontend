@@ -1,9 +1,5 @@
 import { http } from './http';
-import type {
-  BackendRestaurantSyncResult,
-  BackendTeam,
-  BackendTeamMembers,
-} from './types';
+import type { BackendTeam, BackendTeamMembers } from './types';
 
 /**
  * 회사 주변 식당 추천에 쓰는 기본 반경. 사용자에게는 노출하지 않고 내부적으로 고정한다.
@@ -27,12 +23,5 @@ export async function updateTeamLocation(
   input: UpdateTeamLocationInput,
 ): Promise<BackendTeam> {
   const { data } = await http.patch<BackendTeam>('/teams/me/location', input);
-  return data;
-}
-
-export async function syncTeamRestaurants(): Promise<BackendRestaurantSyncResult> {
-  const { data } = await http.post<BackendRestaurantSyncResult>(
-    '/teams/me/restaurants/sync',
-  );
   return data;
 }

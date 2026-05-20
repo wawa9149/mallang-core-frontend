@@ -74,14 +74,6 @@ export interface BackendTeamMembers {
   members: BackendPublicUser[];
 }
 
-export interface BackendRestaurantSyncResult {
-  enabled: boolean;
-  fetched: number;
-  upserted: number;
-  skipped: number;
-  reason?: string;
-}
-
 export type BackendVoteStatus = 'open' | 'closed';
 
 /**

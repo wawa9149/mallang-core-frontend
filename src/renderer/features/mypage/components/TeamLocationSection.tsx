@@ -5,7 +5,6 @@ import styled from 'styled-components';
 import {
   DEFAULT_SEARCH_RADIUS_METERS,
   fetchTeamMembers,
-  syncTeamRestaurants,
   updateTeamLocation,
 } from '../../../shared/api/teams-api';
 
@@ -55,13 +54,8 @@ const Input = styled.input`
   }
 `;
 
-const ButtonRow = styled.div`
-  display: flex;
-  gap: 8px;
-`;
-
 const PrimaryButton = styled.button`
-  flex: 1;
+  width: 100%;
   min-height: 40px;
   border-radius: 12px;
   background: ${({ theme }) => theme.brand.primary};
@@ -71,25 +65,6 @@ const PrimaryButton = styled.button`
 
   &:hover:not(:disabled) {
     background: ${({ theme }) => theme.brand.primaryHover};
-  }
-  &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-`;
-
-const SecondaryButton = styled.button`
-  flex: 1;
-  min-height: 40px;
-  border-radius: 12px;
-  background: ${({ theme }) => theme.brand.background};
-  color: ${({ theme }) => theme.brand.title};
-  font-size: 12px;
-  font-weight: 700;
-
-  &:hover:not(:disabled) {
-    background: ${({ theme }) =>
-      `color-mix(in srgb, ${theme.brand.primary} 16%, ${theme.brand.background})`};
   }
   &:disabled {
     opacity: 0.5;
@@ -165,37 +140,11 @@ export function TeamLocationSection() {
       }),
     onSuccess: () => {
       setErrorMessage(null);
-      setSavedHint(
-        '주소를 저장했어. 좌표 변환과 주변 식당 동기화는 잠시 뒤 자동으로 끝나.',
-      );
+      setSavedHint('회사 주소를 저장했어. 점심 추천에 곧 반영될 거야.');
       queryClient.invalidateQueries({ queryKey: ['team'] });
       queryClient.invalidateQueries({
         queryKey: ['lunch-votes', 'suggestions'],
       });
-    },
-    onError: (error) => {
-      setErrorMessage(readError(error));
-    },
-  });
-
-  const syncMutation = useMutation({
-    mutationFn: syncTeamRestaurants,
-    onSuccess: (result) => {
-      setErrorMessage(null);
-      if (!result.enabled) {
-        setSavedHint(
-          result.reason ?? '카카오 API 키가 없어 동기화를 건너뛰었어.',
-        );
-      } else if (result.reason) {
-        setSavedHint(result.reason);
-      } else {
-        setSavedHint(
-          `${result.upserted}곳 갱신 완료 (가져온 데이터 ${result.fetched}곳).`,
-        );
-        queryClient.invalidateQueries({
-          queryKey: ['lunch-votes', 'suggestions'],
-        });
-      }
     },
     onError: (error) => {
       setErrorMessage(readError(error));
@@ -239,35 +188,22 @@ export function TeamLocationSection() {
         />
       </FieldLabel>
       {hasCoords ? (
-        <Meta>좌표 변환 완료</Meta>
+        <Meta>주소 등록 완료</Meta>
       ) : location?.address ? (
         <Notice>
-          좌표 변환이 아직 안 됐어. 위 &quot;주소 저장&quot;을 한 번 더 눌러 봐.
+          이 주소를 못 찾았어. 주소를 다시 확인하고 &quot;주소 저장&quot;을 한
+          번 더 눌러 봐.
         </Notice>
       ) : (
-        <Notice>정확도를 높이려면 주소를 입력해 줘.</Notice>
+        <Notice>점심 추천 정확도를 높이려면 회사 주소를 입력해 줘.</Notice>
       )}
-      <ButtonRow>
-        <PrimaryButton
-          type="button"
-          onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending}
-        >
-          {saveMutation.isPending ? '저장 중…' : '주소 저장'}
-        </PrimaryButton>
-        <SecondaryButton
-          type="button"
-          onClick={() => syncMutation.mutate()}
-          disabled={!hasCoords || syncMutation.isPending}
-          title={
-            hasCoords
-              ? '주변 식당을 다시 가져온다'
-              : '좌표가 채워진 뒤에 사용할 수 있어'
-          }
-        >
-          {syncMutation.isPending ? '동기화 중…' : '지금 동기화'}
-        </SecondaryButton>
-      </ButtonRow>
+      <PrimaryButton
+        type="button"
+        onClick={() => saveMutation.mutate()}
+        disabled={saveMutation.isPending}
+      >
+        {saveMutation.isPending ? '저장 중…' : '주소 저장'}
+      </PrimaryButton>
       {savedHint && <Notice>{savedHint}</Notice>}
       {errorMessage && <ErrorBox>{errorMessage}</ErrorBox>}
     </Card>
