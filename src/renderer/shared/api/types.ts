@@ -90,6 +90,12 @@ export interface BackendLunchVoteOptionRestaurant {
   tags: string[];
   address: string | null;
   distanceMeters: number | null;
+  /**
+   * 식당 상세 페이지(공유 링크) URL.
+   * 카카오에서 가져온 식당만 채워지고, 시드 등 외부 ID 없는 식당은 null.
+   * null 이면 프론트는 이름/주소 검색 URL 로 폴백한다.
+   */
+  placeUrl: string | null;
 }
 
 export interface BackendLunchVoteOption {

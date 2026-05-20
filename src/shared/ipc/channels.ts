@@ -44,6 +44,13 @@ export const IPC_CHANNELS = {
     /** 메인 → 렌더러: 다른 창에서 프로필이 갱신됐다. 받은 쪽은 자기 store 를 즉시 동기화한다. */
     UPDATED: 'profile:updated',
   },
+  SHELL: {
+    /**
+     * 렌더러 → 메인: 외부 URL 을 시스템 기본 브라우저로 열어 달라고 요청.
+     * 보안상 http/https 만 허용한다(메인에서 검증).
+     */
+    OPEN_EXTERNAL: 'shell:open-external',
+  },
 } as const;
 
 export type ScheduledIntent =
@@ -87,4 +94,5 @@ export type IpcChannel =
   | (typeof IPC_CHANNELS.APP)[keyof typeof IPC_CHANNELS.APP]
   | (typeof IPC_CHANNELS.SCHEDULER)[keyof typeof IPC_CHANNELS.SCHEDULER]
   | (typeof IPC_CHANNELS.NOTIFICATION)[keyof typeof IPC_CHANNELS.NOTIFICATION]
-  | (typeof IPC_CHANNELS.PROFILE)[keyof typeof IPC_CHANNELS.PROFILE];
+  | (typeof IPC_CHANNELS.PROFILE)[keyof typeof IPC_CHANNELS.PROFILE]
+  | (typeof IPC_CHANNELS.SHELL)[keyof typeof IPC_CHANNELS.SHELL];

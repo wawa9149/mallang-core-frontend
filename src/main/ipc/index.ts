@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron';
 import {
   IPC_CHANNELS,
   type NotificationShowPayload,
@@ -104,6 +104,23 @@ export function registerIpcHandlers() {
         if (win.webContents.id === senderId) continue;
         win.webContents.send(IPC_CHANNELS.PROFILE.UPDATED, payload);
       }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SHELL.OPEN_EXTERNAL,
+    async (_event, url: string) => {
+      // 렌더러에서 임의의 스킴(file:, javascript: 등)이 넘어오면 위험하므로,
+      // http/https 만 허용해서 OS 기본 브라우저로 넘긴다.
+      if (typeof url !== 'string') return;
+      let parsed: URL;
+      try {
+        parsed = new URL(url);
+      } catch {
+        return;
+      }
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+      await shell.openExternal(parsed.toString());
     },
   );
 

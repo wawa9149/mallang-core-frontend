@@ -55,6 +55,14 @@ const mallangBridge = {
     show: (payload: NotificationShowPayload) =>
       ipcRenderer.invoke(IPC_CHANNELS.NOTIFICATION.SHOW, payload),
   },
+  shell: {
+    /**
+     * 임의의 외부 URL 을 시스템 기본 브라우저로 연다.
+     * 메인에서 http/https 만 허용하도록 한 번 더 검증한다.
+     */
+    openExternal: (url: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SHELL.OPEN_EXTERNAL, url),
+  },
   profile: {
     /** 마이페이지에서 저장 직후 호출. 메인이 다른 BrowserWindow 들에 변경을 전파해 준다. */
     broadcastUpdated: (payload: ProfileUpdatedPayload) =>

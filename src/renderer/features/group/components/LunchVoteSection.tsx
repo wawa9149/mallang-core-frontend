@@ -75,7 +75,8 @@ const OptionRow = styled.li<{ $selected?: boolean; $progress: number }>`
     ${({ theme, $selected }) =>
       $selected ? theme.brand.primary : 'transparent'};
   overflow: hidden;
-  cursor: pointer;
+  display: flex;
+  align-items: stretch;
   transition: border-color 160ms ease;
 
   &:hover {
@@ -94,24 +95,74 @@ const OptionRow = styled.li<{ $selected?: boolean; $progress: number }>`
   }
 `;
 
-const OptionInner = styled.button<{ $selected?: boolean }>`
+/**
+ * 식당 정보 카드 부분. 클릭하면 카카오맵 검색 페이지가 시스템 기본 브라우저에서 열린다.
+ * 투표 액션은 우측의 VoteButton 으로 분리했다.
+ */
+const OptionInner = styled.button`
   position: relative;
   z-index: 1;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 4px;
-  padding: 10px 12px;
+  padding: 10px 8px 10px 12px;
   background: transparent;
   border: none;
   font: inherit;
   color: ${({ theme }) => theme.brand.title};
   text-align: left;
   cursor: pointer;
+`;
+
+/** OptionRow 우측 액션 영역. 진행률 배경 위에 떠 보이도록 z-index 를 끌어올린다. */
+const OptionAction = styled.div`
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px 6px 4px;
+  flex-shrink: 0;
+`;
+
+/**
+ * 투표 액션 버튼. selected 상태에서는 강조색으로 칠해서 "내 표"라고 분명히 표시한다.
+ * lockInteractions(마감/만료) 시엔 disabled 로 둬서 표 변경을 막는다.
+ */
+const VoteButton = styled.button<{ $selected: boolean }>`
+  min-width: 56px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid
+    ${({ theme, $selected }) =>
+      $selected ? theme.brand.primary : 'transparent'};
+  background: ${({ theme, $selected }) =>
+    $selected ? theme.brand.primary : theme.brand.inputBg};
+  color: ${({ theme, $selected }) =>
+    $selected ? theme.brand.promptText : theme.brand.title};
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme, $selected }) =>
+      $selected
+        ? theme.brand.primaryHover
+        : `color-mix(in srgb, ${theme.brand.primary} 14%, ${theme.brand.inputBg})`};
+    border-color: ${({ theme }) => theme.brand.primary};
+  }
 
   &:disabled {
-    cursor: default;
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 `;
 
@@ -494,6 +545,7 @@ function ActiveVoteCard({
           const selected = option.id === vote.myOptionId;
           const isWinner = option.id === vote.winnerOptionId;
           const progress = option.voteCount / max;
+          const mapUrl = buildRestaurantMapUrl(option);
           return (
             <OptionRow
               key={option.id}
@@ -502,9 +554,9 @@ function ActiveVoteCard({
             >
               <OptionInner
                 type="button"
-                $selected={selected}
-                disabled={castMutation.isPending || lockInteractions}
-                onClick={() => castMutation.mutate(option.id)}
+                onClick={() => openExternalLink(mapUrl)}
+                title={`카카오맵에서 ${option.label} 정보 보기`}
+                aria-label={`카카오맵에서 ${option.label} 정보 보기`}
               >
                 <OptionTopRow>
                   <OptionLabel $selected={selected || isWinner}>
@@ -515,6 +567,7 @@ function ActiveVoteCard({
                         {formatPriceTier(option.restaurant.priceTier)}
                       </PriceBadge>
                     )}
+                    <ExternalLinkIcon />
                   </OptionLabel>
                   <VoteCount>{option.voteCount}</VoteCount>
                 </OptionTopRow>
@@ -526,6 +579,27 @@ function ActiveVoteCard({
                   </Voters>
                 )}
               </OptionInner>
+              <OptionAction>
+                <VoteButton
+                  type="button"
+                  $selected={selected}
+                  disabled={castMutation.isPending || lockInteractions}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    castMutation.mutate(option.id);
+                  }}
+                  title={
+                    lockInteractions
+                      ? '투표가 마감됐어'
+                      : selected
+                        ? '이미 투표했어'
+                        : '이 후보에 투표하기'
+                  }
+                  aria-pressed={selected}
+                >
+                  {selected ? '내 표' : '투표'}
+                </VoteButton>
+              </OptionAction>
             </OptionRow>
           );
         })}
@@ -706,6 +780,71 @@ function CheckIcon() {
       />
     </svg>
   );
+}
+
+/**
+ * 옵션 라벨 옆에 띄우는 "외부로 이동" 아이콘.
+ * 카드 본체 클릭이 외부 링크로 이어진다는 걸 시각적으로 힌트만 준다.
+ */
+function ExternalLinkIcon() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 12 12"
+      fill="none"
+      aria-hidden
+      style={{ opacity: 0.55, flexShrink: 0 }}
+    >
+      <path
+        d="M4 2.5H2.5a1 1 0 0 0-1 1V9.5a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V8"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 1.5h3.5V5M10 2L5.5 6.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * 옵션 카드에서 열어 줄 카카오맵 링크를 만든다.
+ * - 식당이 카카오 소스라면 백엔드가 내려준 placeUrl(상세 페이지/공유 링크)을 그대로 쓴다.
+ * - 시드/자유 입력처럼 식별 가능한 외부 ID 가 없으면 이름(+주소) 검색 URL 로 폴백한다.
+ */
+function buildRestaurantMapUrl(option: BackendLunchVoteOption): string {
+  const restaurant = option.restaurant;
+  if (restaurant?.placeUrl) {
+    return restaurant.placeUrl;
+  }
+  const tokens = [option.label];
+  if (restaurant?.address) tokens.push(restaurant.address);
+  const query = tokens
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0)
+    .join(' ');
+  return `https://map.kakao.com/?q=${encodeURIComponent(query)}`;
+}
+
+/**
+ * Electron 환경이면 preload 브리지로 시스템 기본 브라우저를 띄우고,
+ * 브리지가 없는 환경(스토리북 등)에서는 새 탭 이동으로 폴백한다.
+ */
+function openExternalLink(url: string) {
+  if (typeof window === 'undefined') return;
+  const bridge = window.mallang;
+  if (bridge?.shell?.openExternal) {
+    void bridge.shell.openExternal(url);
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function readMutationError(error: unknown): string | null {
