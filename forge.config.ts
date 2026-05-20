@@ -29,11 +29,25 @@ const config: ForgeConfig = {
       owners: 'Mallang Core Team',
       title: 'Mallang Core',
       description: '회사에서의 하루를 함께하는 데스크탑 말랑이',
+      // 설치 마법사(.exe)와 시작메뉴/바탕화면 단축키 아이콘 모두 같은 .ico 를 쓰게 한다.
+      setupIcon: 'src/renderer/assets/icons/app.ico',
     }),
-    new MakerDMG({ format: 'ULFO' }),
+    new MakerDMG({
+      format: 'ULFO',
+      // DMG 마운트 시 볼륨 아이콘과 앱 번들 미리보기가 같은 .icns 로 보이게 한다.
+      icon: 'src/renderer/assets/icons/app.icns',
+    }),
     new MakerZIP({}, ['darwin']),
-    new MakerRpm({}),
-    new MakerDeb({}),
+    new MakerRpm({
+      options: {
+        icon: 'src/renderer/assets/icons/app.png',
+      },
+    }),
+    new MakerDeb({
+      options: {
+        icon: 'src/renderer/assets/icons/app.png',
+      },
+    }),
   ],
   plugins: [
     new VitePlugin({
