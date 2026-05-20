@@ -19,7 +19,7 @@ import {
   TextInput,
   TimeTripleInput,
 } from './components/inputs';
-import { useOnboardingStore } from './onboarding-store';
+import { useOnboardingStore, type OnboardingAnswers } from './onboarding-store';
 import { ONBOARDING_STEPS, summarizeAnswers } from './steps';
 
 function readError(error: unknown, fallback: string): string {
@@ -120,8 +120,31 @@ const SummaryCard = styled.div`
   white-space: pre-wrap;
 `;
 
+/**
+ * 현재 step에 해당하는 텍스트 입력의 누적값을 store에서 꺼내준다.
+ * 사용자가 확인 단계에서 "다시 알려줄게"를 눌러 돌아오면, 그 시점에 살아있는
+ * answers 값을 입력창에 그대로 보여주기 위해 사용한다.
+ */
+function getInitialTextValue(
+  stepId: 'name' | 'allergies' | 'team' | 'address' | 'apiKey',
+  answers: OnboardingAnswers,
+): string {
+  switch (stepId) {
+    case 'name':
+      return answers.name;
+    case 'allergies':
+      return answers.allergies;
+    case 'team':
+      return answers.team;
+    case 'address':
+      return answers.address;
+    case 'apiKey':
+      return answers.apiKey;
+  }
+}
+
 export function OnboardingFlow() {
-  const { stepIndex, answers, updateAnswers, next, reset } =
+  const { stepIndex, answers, updateAnswers, next, restart, reset } =
     useOnboardingStore();
   const { persona, setPersona } = useMallangStore();
   const setProfile = useUserProfileStore((state) => state.setProfile);
@@ -239,7 +262,8 @@ export function OnboardingFlow() {
   };
 
   const handleConfirmNo = () => {
-    reset();
+    setSubmitError(null);
+    restart();
   };
 
   return (
@@ -271,12 +295,20 @@ export function OnboardingFlow() {
             maxLength={step.maxLength}
             allowEmpty={step.id === 'allergies' ? step.allowEmpty : false}
             secret={step.id === 'apiKey'}
+            initialValue={getInitialTextValue(step.id, answers)}
             onSubmit={handleTextSubmit}
           />
         )}
 
         {step.type === 'time-triple' && (
-          <TimeTripleInput onSubmit={handleTimeSubmit} />
+          <TimeTripleInput
+            initialValues={{
+              workStart: answers.workStart,
+              lunch: answers.lunch,
+              workEnd: answers.workEnd,
+            }}
+            onSubmit={handleTimeSubmit}
+          />
         )}
 
         {step.type === 'choice' && (

@@ -64,6 +64,11 @@ interface TextInputProps {
   allowEmpty?: boolean;
   /** OpenAI 키처럼 노출이 곤란한 값은 비밀번호 타입으로 입력받는다. */
   secret?: boolean;
+  /**
+   * 처음 진입 시 채워둘 값. 사용자가 확인 단계에서 "다시 알려줄게"를 눌러 돌아온 경우
+   * 이전 입력값을 그대로 보여주기 위해 사용한다.
+   */
+  initialValue?: string;
   onSubmit: (value: string) => void;
 }
 
@@ -72,9 +77,10 @@ export function TextInput({
   maxLength,
   allowEmpty,
   secret,
+  initialValue,
   onSubmit,
 }: TextInputProps) {
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(initialValue ?? '');
   const [isComposing, setIsComposing] = useState(false);
 
   const disabled = !allowEmpty && value.trim().length === 0;
@@ -184,6 +190,14 @@ const TimeSubmitRow = styled.div`
 `;
 
 interface TimeTripleProps {
+  /**
+   * 처음 진입 시 채워둘 시간 값. 빈 문자열이면 각 필드의 기본값(09:00 / 12:30 / 18:00)으로 폴백한다.
+   */
+  initialValues?: {
+    workStart: string;
+    lunch: string;
+    workEnd: string;
+  };
   onSubmit: (values: {
     workStart: string;
     lunch: string;
@@ -191,10 +205,12 @@ interface TimeTripleProps {
   }) => void;
 }
 
-export function TimeTripleInput({ onSubmit }: TimeTripleProps) {
-  const [workStart, setWorkStart] = useState('09:00');
-  const [lunch, setLunch] = useState('12:30');
-  const [workEnd, setWorkEnd] = useState('18:00');
+export function TimeTripleInput({ initialValues, onSubmit }: TimeTripleProps) {
+  const [workStart, setWorkStart] = useState(
+    initialValues?.workStart || '09:00',
+  );
+  const [lunch, setLunch] = useState(initialValues?.lunch || '12:30');
+  const [workEnd, setWorkEnd] = useState(initialValues?.workEnd || '18:00');
 
   const disabled = !workStart || !lunch || !workEnd;
 
