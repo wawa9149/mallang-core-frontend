@@ -376,11 +376,12 @@ export function MallangOverlayPage() {
   const setProfile = useUserProfileStore((s) => s.setProfile);
   const setUser = useAuthStore((s) => s.setUser);
   const authedUser = useAuthStore((s) => s.user);
-  // 진실의 출처는 백엔드 user.onboardedAt.
+  // 진실의 출처는 오직 백엔드 user.onboardedAt.
   // useAuthStore 는 persist + storage 이벤트 동기화가 이미 걸려 있어 멀티 윈도우에서도 즉시 따라간다.
-  // profile 이 채워져 있다면 로컬에서 이미 사용 중이라는 뜻이므로 별도 신호로도 인정한다.
-  const onboardingComplete =
-    Boolean(authedUser?.onboardedAt) || profile !== null;
+  // 과거에는 profile != null 도 OR 로 인정했는데, fetchMe 직후 빈 프로필을 setProfile 해 두는
+  // 동작과 맞물려 회원가입 직후 새 사용자에게도 onboardingComplete=true 가 박혀 OnboardingFlow 가
+  // 떠야 할 자리에 메인 채팅 화면이 떠 버렸다. DB 의 onboardedAt 만 본다.
+  const onboardingComplete = Boolean(authedUser?.onboardedAt);
   const effectivePersona = profile?.hobby ?? persona;
   const [prompt, setPrompt] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -618,21 +619,27 @@ export function MallangOverlayPage() {
           }
         }
 
-        const nextProfile = {
-          name: raw.name ?? '',
-          team: teamName,
-          workStartTime: raw.workStartTime,
-          lunchTime: raw.lunchTime,
-          workEndTime: raw.workEndTime,
-          hobby: hobbyToPersona(raw.hobby),
-          allergies: raw.allergies ?? '',
-        };
-
-        // store 가 비어 있을 수도 있고(=로그아웃 직후 다시 로그인) 이전 세션 값이 남아 있을 수도 있다.
-        // 어느 쪽이든 서버 진실로 한 번 덮어써, 마이페이지 폼이 빈 칸으로 노출되는 일을 막는다.
-        // setProfile 은 전체 덮어쓰기, updateProfile 은 merge 인데 우리는 이미 모든 필드를 채워 들어가므로
-        // 어떤 경우든 setProfile 한 번이면 충분하다.
-        useUserProfileStore.getState().setProfile(nextProfile);
+        // 온보딩을 마친 사용자에게만 마이페이지 prefill 용으로 store 를 채운다.
+        // 회원가입 직후처럼 onboardedAt 이 없는 사용자에게 빈 문자열로 setProfile 해 두면
+        // useUserProfileStore.profile 이 not-null 이 되어, 온보딩 분기를 잘못 우회시킨
+        // 과거 버그를 다시 만든다.
+        if (raw.onboardedAt) {
+          const nextProfile = {
+            name: raw.name ?? '',
+            team: teamName,
+            workStartTime: raw.workStartTime,
+            lunchTime: raw.lunchTime,
+            workEndTime: raw.workEndTime,
+            hobby: hobbyToPersona(raw.hobby),
+            allergies: raw.allergies ?? '',
+          };
+          // store 가 비어 있을 수도 있고(=로그아웃 직후 다시 로그인) 이전 세션 값이 남아 있을 수도 있다.
+          // 어느 쪽이든 서버 진실로 한 번 덮어써, 마이페이지 폼이 빈 칸으로 노출되는 일을 막는다.
+          useUserProfileStore.getState().setProfile(nextProfile);
+        } else {
+          // 온보딩 전이면 이전 세션의 stale 프로필을 깨끗이 비워, OnboardingFlow 로 자연스럽게 보낸다.
+          useUserProfileStore.getState().clearProfile();
+        }
       } catch (error) {
         if (import.meta.env.DEV) {
           console.warn('[mallang] /auth/me sync failed', error);
