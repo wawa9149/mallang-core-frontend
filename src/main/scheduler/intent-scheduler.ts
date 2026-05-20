@@ -77,8 +77,16 @@ function computeTriggers(): {
   if (work) triggers.push({ intent: 'morning_check', at: work });
 
   const lunch = parseHM(config.lunchTime);
+  const teamLunchVote = parseHM(config.teamLunchVoteTime) ?? lunch;
+  if (teamLunchVote) {
+    // 점심 투표는 "팀 단위" 의사결정이므로 팀원 중 가장 빠른 점심 시간 10분 전에 모두에게 띄운다.
+    triggers.push({
+      intent: 'lunch_alert',
+      at: addMinutes(teamLunchVote, -10),
+    });
+  }
   if (lunch) {
-    triggers.push({ intent: 'lunch_alert', at: addMinutes(lunch, -10) });
+    // 점심 후 회고/리뷰는 개인이 실제 점심을 먹은 뒤가 자연스러우므로 본인 lunchTime 기준을 유지한다.
     triggers.push({ intent: 'lunch_review', at: addMinutes(lunch, 30) });
   }
 

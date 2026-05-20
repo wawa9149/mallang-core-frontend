@@ -81,6 +81,13 @@ export interface SchedulerConfigPayload {
   workStartTime: string | null;
   /** 'HH:MM' (KST). lunch_alert는 이 시각 10분 전, lunch_review는 30분 후. */
   lunchTime: string | null;
+  /**
+   * 팀 점심 투표 기준 시각. 팀원 lunchTime 중 가장 빠른 시간을 렌더러가 계산해 전달한다.
+   * - lunch_alert(점심 투표 시작 알림)는 이 값 기준 10분 전에 발화한다.
+   * - lunch_review는 사용자의 실제 lunchTime 기준이어야 하므로 이 값을 쓰지 않는다.
+   * null이면 기존처럼 lunchTime으로 폴백한다.
+   */
+  teamLunchVoteTime: string | null;
   /** 'HH:MM' (KST). evening_check 트리거. */
   workEndTime: string | null;
   /** 데스크탑 배너 알림 사용 여부. false면 메인 → 렌더러 신호는 보내되 OS 알림은 띄우지 않는다. */

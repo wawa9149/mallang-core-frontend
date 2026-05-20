@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { BrowserWindow } from 'electron';
 import { loadRenderer } from './load-renderer';
+import { raiseMallangBundle } from './mallang-window';
 import { registerPanel, unregisterPanel } from './panel-layout';
 
 let groupWindow: BrowserWindow | null = null;
@@ -36,7 +37,8 @@ export function createGroupWindow() {
     minimizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    alwaysOnTop: true,
+    // 말랑이 본체와 동일한 z-order 정책을 따른다 (mypage-window.ts 의 설명 참고).
+    alwaysOnTop: false,
     focusable: true,
     roundedCorners: true,
     webPreferences: {
@@ -47,9 +49,6 @@ export function createGroupWindow() {
     },
   });
 
-  // 다른 앱에 가려지지 않도록 위에 띄우되, 'floating' 레벨을 사용해
-  // macOS Spaces 전환 시 부속 패널이 다른 데스크탑까지 따라가지 않도록 한다.
-  groupWindow.setAlwaysOnTop(true, 'floating');
   // 풀스크린 앱이나 다른 Space로 이동할 때 따라오지 않게 한다.
   groupWindow.setVisibleOnAllWorkspaces(false);
 
@@ -66,6 +65,11 @@ export function createGroupWindow() {
       if (!groupWindow || groupWindow.isDestroyed()) return;
       groupWindow.setBounds({ x, y, width: WIDTH, height: HEIGHT });
     },
+  });
+
+  // 패널이 포커스를 받으면 말랑이 본체와 다른 활성 패널까지 함께 위로 끌어올린다 (한 묶음).
+  groupWindow.on('focus', () => {
+    raiseMallangBundle();
   });
 
   groupWindow.on('closed', () => {

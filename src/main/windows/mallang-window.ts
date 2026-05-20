@@ -30,6 +30,43 @@ function closeAttachedPanels() {
   }
 }
 
+/**
+ * 현재 살아 있는 부속 패널들을 z-order 의 위쪽으로 가져온다.
+ * moveTop() 은 포커스를 옮기지 않기 때문에, 호출 측의 포커스 상태(예: 사용자가 본체를 클릭함)는 유지된다.
+ */
+function raiseAttachedPanels() {
+  for (const win of [
+    getMyPageWindow(),
+    getGroupWindow(),
+    getLunchVoteWindow(),
+  ]) {
+    if (win && !win.isDestroyed() && win.isVisible()) {
+      win.moveTop();
+    }
+  }
+}
+
+/**
+ * "말랑이 묶음"(본체 + 활성 패널) 전체를 한 번에 위로 끌어올린다.
+ * 패널 하나가 포커스를 받았을 때 본체와 다른 패널도 함께 올라오게 해서,
+ * 사용자가 한 패널만 클릭해도 시각적으로 "한 묶음이 같이 움직인다" 는 느낌을 유지한다.
+ *
+ * 호출 순서가 중요하다.
+ *  1) 본체를 먼저 위로
+ *  2) 그 다음 패널들을 그 위로
+ * 이렇게 해야 최종 z-order 에서 패널들이 본체 바로 위에 정렬된다.
+ */
+export function raiseMallangBundle() {
+  if (
+    mallangWindow &&
+    !mallangWindow.isDestroyed() &&
+    mallangWindow.isVisible()
+  ) {
+    mallangWindow.moveTop();
+  }
+  raiseAttachedPanels();
+}
+
 export function createMallangWindow() {
   if (mallangWindow && !mallangWindow.isDestroyed()) {
     mallangWindow.focus();
@@ -95,6 +132,14 @@ export function createMallangWindow() {
       // 다른 창이 이미 떠 있으면 그 창에 포커스를 양도해 말랑이가 z-order 아래로 가도록 한다.
       others[others.length - 1].focus();
     }
+  });
+
+  // 말랑이 본체가 포커스를 받으면 같은 묶음으로 보여야 할 부속 패널도 함께 위로 끌어올린다.
+  // 패널들이 더 이상 alwaysOnTop 으로 떠 있지 않기 때문에, 사용자가 본체를 클릭했을 때
+  // 패널이 다른 앱 뒤에 숨어 보이지 않으면 사용 흐름이 끊기기 때문이다.
+  // raiseAttachedPanels() 자체는 본체에 포커스를 다시 가져오지 않으므로 본체 포커스 상태는 유지된다.
+  mallangWindow.on('focus', () => {
+    raiseAttachedPanels();
   });
 
   mallangWindow.on('closed', () => {
