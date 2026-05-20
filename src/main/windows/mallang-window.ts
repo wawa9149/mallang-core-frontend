@@ -56,7 +56,10 @@ export function createMallangWindow() {
     // 메인 앱 창 역할이라 작업표시줄/Dock 인디케이터에 노출해 둔다.
     // (메인 로그인 창이 닫힌 뒤에도 사용자가 앱이 실행 중임을 시각적으로 확인할 수 있게 한다.)
     skipTaskbar: false,
-    alwaysOnTop: true,
+    // 말랑이 창은 다른 앱 창들 뒤에 자연스럽게 깔려야 한다. always-on-top 으로 띄우면
+    // 마이페이지/그룹/점심 투표 같은 보조 창은 물론, 다른 외부 앱 창까지 가려 버리기 때문에
+    // 일반 z-order 윈도우로 두고 사용자가 클릭할 때만 위로 올라오게 한다.
+    alwaysOnTop: false,
     focusable: true,
     roundedCorners: true,
     webPreferences: {
@@ -71,12 +74,28 @@ export function createMallangWindow() {
     },
   });
 
-  mallangWindow.setAlwaysOnTop(true, 'screen-saver');
+  // 가상 데스크탑(스페이스)을 이동해도 같은 위치에 보이도록 한다.
+  // 전체화면 앱 위에 강제로 올라오지는 않게 visibleOnFullScreen 은 끈다.
   mallangWindow.setVisibleOnAllWorkspaces(true, {
-    visibleOnFullScreen: true,
+    visibleOnFullScreen: false,
   });
 
   loadRenderer(mallangWindow, '/mallang');
+
+  // 새 창(마이페이지/그룹/점심 투표 등)이 열렸을 때 말랑이 창이 그 위에 떠 있는 인상을 주지
+  // 않도록, 윈도우가 처음 표시되는 시점에 한 번 뒤로 보낸다. 이후 사용자 클릭으로 자연스럽게
+  // 위로 올라오는 동작은 그대로 둔다.
+  mallangWindow.once('ready-to-show', () => {
+    if (!mallangWindow || mallangWindow.isDestroyed()) return;
+    const others = BrowserWindow.getAllWindows().filter(
+      (win) =>
+        win.id !== mallangWindow!.id && !win.isDestroyed() && win.isVisible(),
+    );
+    if (others.length > 0) {
+      // 다른 창이 이미 떠 있으면 그 창에 포커스를 양도해 말랑이가 z-order 아래로 가도록 한다.
+      others[others.length - 1].focus();
+    }
+  });
 
   mallangWindow.on('closed', () => {
     mallangWindow = null;
