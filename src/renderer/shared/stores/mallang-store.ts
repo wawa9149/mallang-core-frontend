@@ -5,8 +5,8 @@ import type {
 } from '../../../shared/types/domain';
 
 /**
- * 캐릭터 창과 메인 창이 같은 상태를 공유하기 위한 전역 store.
- * MVP는 메모리만 유지하고, 추후 secure storage(electron-store + keytar)로 영속화한다.
+ * 캐릭터 창의 휘발성 표시 상태(말풍선 / 캐릭터 표정 / persona) 만 보관한다.
+ * 온보딩 여부는 백엔드 user.onboardedAt 이 진실의 출처이므로 이 store 에 두지 않는다.
  */
 /**
  * setBubble 옵션.
@@ -27,11 +27,9 @@ interface MallangStoreState {
    * - 사용자가 다른 발화/클릭으로 말풍선을 갱신하면 자동으로 false 로 풀린다.
    */
   bubblePersistent: boolean;
-  isOnboarded: boolean;
   setState: (next: MallangState) => void;
   setPersona: (persona: MallangPersona) => void;
   setBubble: (message: string | null, options?: SetBubbleOptions) => void;
-  setOnboarded: (value: boolean) => void;
 }
 
 export const useMallangStore = create<MallangStoreState>((set) => ({
@@ -39,7 +37,6 @@ export const useMallangStore = create<MallangStoreState>((set) => ({
   persona: 'rest',
   recentBubble: null,
   bubblePersistent: false,
-  isOnboarded: false,
   setState: (next) => set({ state: next }),
   setPersona: (persona) => set({ persona }),
   setBubble: (message, options) =>
@@ -49,5 +46,4 @@ export const useMallangStore = create<MallangStoreState>((set) => ({
       // 사용자가 새 발화를 던지면 자동 사라짐 룰이 다시 적용된다.
       bubblePersistent: options?.persistent ?? false,
     }),
-  setOnboarded: (value) => set({ isOnboarded: value }),
 }));

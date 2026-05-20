@@ -2,11 +2,7 @@ import axios from 'axios';
 import type { AxiosError } from 'axios';
 import type { User } from '../../../shared/types/domain';
 import { useAuthStore } from '../stores/auth-store';
-import {
-  applyAuthenticatedSession,
-  isUserOnboarded,
-} from '../window/apply-session';
-import { useMallangStore } from '../stores/mallang-store';
+import { applyAuthenticatedSession } from '../window/apply-session';
 import { http } from './http';
 import { toFrontendUser } from './mappers';
 import type { BackendPublicUser } from './types';
@@ -135,13 +131,12 @@ export async function login(
       password,
     });
     const user = toFrontendUser(data.user);
+    // applyAuthenticatedSession 이 useAuthStore.setSession(user, tokens) 으로 user 를 박아 주고,
+    // user.onboardedAt 의 값이 곧 OnboardingFlow 분기의 진실의 출처가 된다. 추가 플래그 조작은 필요 없다.
     applyAuthenticatedSession(user, {
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
     });
-    // 백엔드에 사용자 정보가 충분히 있으면 OnboardingFlow 는 건너뛰고 메인으로 직진한다.
-    // profile 은 마이페이지/필요 시점에 백엔드에서 따로 채우게 두고 여기선 분기 신호만 켠다.
-    const onboarded = isUserOnboarded(data.user);
     if (import.meta.env.DEV) {
       console.info(
         '[auth] login response',
@@ -149,12 +144,9 @@ export async function login(
         data.user.id,
         '| name=',
         JSON.stringify(data.user.name),
-        '| onboardedHeuristic=',
-        onboarded,
+        '| onboardedAt=',
+        data.user.onboardedAt,
       );
-    }
-    if (onboarded) {
-      useMallangStore.getState().setOnboarded(true);
     }
     return { user, raw: data.user };
   } catch (error) {

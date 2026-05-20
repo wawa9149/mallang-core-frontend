@@ -61,6 +61,13 @@ export interface User {
   hasOpenAiKey: boolean;
   /** "sk-...{last4}" 같은 마스킹 힌트. 없으면 null. */
   openaiKeyHint: string | null;
+  /**
+   * 온보딩 완료 시점. 한 번 채워지면 백엔드가 다시 null 로 되돌리지 않는다.
+   * 이 값의 존재 여부만으로 OnboardingFlow 노출 여부를 결정한다.
+   */
+  onboardedAt: ISODateString | null;
+  /** 말랑이 발화를 Clova Voice TTS 로 들을지 여부. 마이페이지 토글로 변경. */
+  ttsEnabled: boolean;
   createdAt: ISODateString;
   updatedAt: ISODateString;
 }

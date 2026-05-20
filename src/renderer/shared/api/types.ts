@@ -19,6 +19,14 @@ export interface BackendPublicUser {
   hasOpenAiKey: boolean;
   openaiKeyHint: string | null;
   openaiKeyUpdatedAt: string | null;
+  /**
+   * 온보딩(필수 정보 입력) 완료 시점(ISO).
+   * 백엔드에서 한 번 채워지면 다시 null 로 돌아가지 않는다.
+   * 프론트는 이 값의 존재 여부만 보고 OnboardingFlow 노출 여부를 결정한다.
+   */
+  onboardedAt: string | null;
+  /** 말랑이 발화를 Clova Voice TTS 로 들을지 여부. 마이페이지 토글로 변경. */
+  ttsEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

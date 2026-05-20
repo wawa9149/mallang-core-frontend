@@ -41,3 +41,19 @@ export const useAuthStore = create<AuthStoreState>()(
     },
   ),
 );
+
+/**
+ * Electron 멀티 윈도우에서 각 BrowserWindow 는 별도의 zustand 인스턴스를 갖는다.
+ * persist 미들웨어는 마운트 시 localStorage 에서 한 번만 hydrate 하므로,
+ * 다른 창에서 refresh 후 setTokens 로 토큰이 회전돼도 이쪽 창 메모리는 stale 인 채로 남는다.
+ * → 다음 401 에서 stale refresh token 으로 재시도 → 백엔드 revoked → 강제 로그아웃이 반복된다.
+ *
+ * localStorage 의 'mallang.auth' 키가 다른 창에서 갱신되면 storage 이벤트로 알 수 있으니,
+ * 이벤트를 받을 때마다 persist 의 rehydrate 를 호출해 메모리 상태를 최신화한다.
+ */
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== 'mallang.auth') return;
+    void useAuthStore.persist.rehydrate();
+  });
+}

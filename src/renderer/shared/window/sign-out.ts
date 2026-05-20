@@ -21,12 +21,12 @@ export async function signOutAndReturnToLogin(): Promise<void> {
   useAuthStore.getState().signOut();
   useUserProfileStore.getState().clearProfile();
   useOnboardingStore.getState().reset();
+  // 온보딩 여부는 백엔드 user.onboardedAt 으로 추적되므로 별도 플래그를 다룰 필요가 없다.
   useMallangStore.setState({
     state: 'neutral',
     persona: 'rest',
     recentBubble: null,
     bubblePersistent: false,
-    isOnboarded: false,
   });
   // 메인 프로세스에 떠 있던 사용자 시간 설정과 발사 기록도 함께 비운다.
   await clearScheduler();

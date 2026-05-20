@@ -28,6 +28,8 @@ export function toFrontendUser(user: BackendPublicUser): User {
     averageOvertimeCount: 0,
     hasOpenAiKey: user.hasOpenAiKey,
     openaiKeyHint: user.openaiKeyHint,
+    onboardedAt: user.onboardedAt,
+    ttsEnabled: user.ttsEnabled,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

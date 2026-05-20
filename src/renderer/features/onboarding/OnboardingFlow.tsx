@@ -123,7 +123,7 @@ const SummaryCard = styled.div`
 export function OnboardingFlow() {
   const { stepIndex, answers, updateAnswers, next, reset } =
     useOnboardingStore();
-  const { persona, setPersona, setOnboarded } = useMallangStore();
+  const { persona, setPersona } = useMallangStore();
   const setProfile = useUserProfileStore((state) => state.setProfile);
   const setUser = useAuthStore((s) => s.setUser);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -174,7 +174,8 @@ export function OnboardingFlow() {
       return { user: lastUser, hobby };
     },
     onSuccess: ({ user, hobby }) => {
-      // 백엔드에 답변이 기록됐으니, 다음 로그인 때 name 신호로 OnboardingFlow 를 건너뛰게 된다.
+      // 백엔드가 user.onboardedAt 을 채워서 응답해 준다. setUser 만 호출하면 그 값이
+      // useAuthStore 에 반영되고, MallangOverlayPage 의 onboardingComplete 분기가 자동으로 켜진다.
       setUser(user);
       setProfile({
         name: answers.name,
@@ -185,7 +186,6 @@ export function OnboardingFlow() {
         hobby,
         allergies: answers.allergies,
       });
-      setOnboarded(true);
       reset();
     },
     onError: (error) => {

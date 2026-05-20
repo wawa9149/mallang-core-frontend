@@ -89,6 +89,19 @@ async function refreshAccessToken(): Promise<string | null> {
 
   pendingRefresh = (async () => {
     try {
+      // 멀티 윈도우 환경 안전망: storage 이벤트를 놓쳤더라도, refresh 직전에
+      // localStorage 에서 가장 최신 token 을 다시 읽어와 메모리에 반영한다.
+      // 다른 BrowserWindow 가 이미 rotation 시킨 새 refresh token 이 있을 수 있다.
+      try {
+        await useAuthStore.persist.rehydrate();
+      } catch (rehydrateError) {
+        if (import.meta.env.DEV) {
+          console.warn(
+            '[http] auth rehydrate before refresh failed',
+            rehydrateError,
+          );
+        }
+      }
       const refreshToken = useAuthStore.getState().tokens?.refreshToken;
       if (!refreshToken) {
         if (import.meta.env.DEV) {
