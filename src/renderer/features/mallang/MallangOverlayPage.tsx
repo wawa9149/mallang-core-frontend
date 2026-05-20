@@ -18,6 +18,12 @@ import { hobbyToPersona } from '../../shared/api/mappers';
 import { transcribeAudio } from '../../shared/api/stt-api';
 import { fetchTeamMembers } from '../../shared/api/teams-api';
 import type { BackendChatIntent, BackendEmotion } from '../../shared/api/types';
+import {
+  fetchTodayWinner,
+  checkAlreadyReviewed,
+  submitReview,
+  type TodayWinner,
+} from '../../shared/api/visit-records-api';
 import { mallangTtsPlayer } from '../../shared/audio/tts-player';
 import { useVoiceRecorder } from '../../shared/audio/use-voice-recorder';
 import { syncSchedulerFromStores } from '../../shared/scheduler/sync';
@@ -25,6 +31,7 @@ import { useAuthStore } from '../../shared/stores/auth-store';
 import { useMallangStore } from '../../shared/stores/mallang-store';
 import { useUserProfileStore } from '../../shared/stores/user-profile-store';
 import { OnboardingFlow } from '../onboarding/OnboardingFlow';
+import { LunchReviewCard } from './components/LunchReviewCard';
 import { MallangCharacter } from './components/MallangCharacter';
 import { pickClickMessage } from './data/click-messages';
 import { pickGreeting } from './data/greetings';
@@ -388,6 +395,10 @@ export function MallangOverlayPage() {
   // 음성 인식 호출이 진행 중인 동안(STT 업스트림 대기) MicButton 을 잠가 둔다.
   const [isTranscribing, setIsTranscribing] = useState(false);
   const voiceRecorder = useVoiceRecorder();
+
+  // 점심 리뷰 카드 상태
+  const [reviewWinner, setReviewWinner] = useState<TodayWinner | null>(null);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const meSyncedRef = useRef(false);
   /**
    * GET /auth/me 로 서버 진실(onboardedAt 포함) 을 확인한 뒤에야 true 가 된다.
@@ -426,9 +437,12 @@ export function MallangOverlayPage() {
     mutationFn: ({ content, intent }: ChatMutationVariables) =>
       sendChat(content, intent ?? 'free'),
     onSuccess: (turn) => {
-      // 사용자의 발화에 대한 follow-up 응답은 일반 대화처럼 4초 후 자동으로 사라진다.
       setBubble(turn.assistantMessage.content);
       setMallangState(emotionToMallangState(turn.emotion.emotion));
+      lastEmotionRef.current = {
+        emotion: turn.emotion.emotion,
+        score: turn.emotion.score,
+      };
     },
     onError: (error) => {
       setBubble(readErrorReply(error));
@@ -455,8 +469,6 @@ export function MallangOverlayPage() {
       triggerScheduledPrompt(intent),
     onSuccess: (assistantMessage, variables) => {
       setBubble(assistantMessage.content, { persistent: true });
-      // 다음에 사용자가 어떤 발화를 하든 이 intent 로 백엔드에 보내 답변을 평가받는다.
-      // 단, 30분 이내에 답한 발화만 follow-up 으로 라우팅한다(그 이상은 만료).
       pendingFollowUpIntentRef.current = {
         intent: variables.intent,
         expiresAt: Date.now() + PENDING_FOLLOWUP_TTL_MS,
@@ -469,6 +481,22 @@ export function MallangOverlayPage() {
         .catch((error) => {
           console.error('[mallang] notification show failed', error);
         });
+
+      // lunch_review가 도착하면 오늘 winner를 조회해 리뷰 카드를 띄울 준비를 한다.
+      if (variables.intent === 'lunch_review') {
+        void (async () => {
+          try {
+            const winner = await fetchTodayWinner();
+            if (!winner) return;
+            const reviewed = await checkAlreadyReviewed(winner.lunchVoteId);
+            if (!reviewed) {
+              setReviewWinner(winner);
+            }
+          } catch (e) {
+            console.error('[mallang] lunch review winner fetch failed', e);
+          }
+        })();
+      }
     },
     onError: (error) => {
       setBubble(readErrorReply(error));
@@ -493,6 +521,9 @@ export function MallangOverlayPage() {
   // - '…' 같은 로딩 placeholder 는 발화하지 않는다.
   // - 같은 발화에 중복 트리거되지 않도록 마지막으로 발화한 텍스트를 ref 로 추적한다.
   const lastSpokenRef = useRef<string | null>(null);
+  const lastEmotionRef = useRef<{ emotion?: string; score?: number } | null>(
+    null,
+  );
   useEffect(() => {
     if (!recentBubble) {
       return;
@@ -517,8 +548,6 @@ export function MallangOverlayPage() {
       lastSpokenRef.current = recentBubble;
       return;
     }
-    // store 가 다른 창에서 갱신됐을 수 있으니, 매 발화마다 persist 를 최신화한 뒤 본다.
-    void useAuthStore.persist?.rehydrate?.();
     const user = useAuthStore.getState().user;
     if (!user?.ttsEnabled) {
       console.info(
@@ -532,7 +561,10 @@ export function MallangOverlayPage() {
       `ttsEnabled=${user.ttsEnabled}`,
     );
     lastSpokenRef.current = recentBubble;
-    void mallangTtsPlayer.speak(recentBubble);
+    void mallangTtsPlayer.speak(
+      recentBubble,
+      lastEmotionRef.current ?? undefined,
+    );
   }, [recentBubble, bubbleMute]);
 
   // 창이 닫히면 진행 중이던 음성도 정리한다.
@@ -689,6 +721,34 @@ export function MallangOverlayPage() {
     });
     return unsubscribe;
   }, [setProfile]);
+
+  const handleReviewSubmit = async (data: {
+    rating: number;
+    note: string;
+    wantsAgain: boolean | null;
+  }) => {
+    if (!reviewWinner) return;
+    setReviewSubmitting(true);
+    try {
+      await submitReview({
+        lunchVoteId: reviewWinner.lunchVoteId,
+        rating: data.rating,
+        note: data.note || undefined,
+        wantsAgain: data.wantsAgain ?? undefined,
+      });
+      setReviewWinner(null);
+      setBubble('리뷰 고마워! 다음 추천에 반영할게 😊');
+    } catch (e) {
+      console.error('[mallang] review submit failed', e);
+      setBubble('앗, 리뷰 저장에 실패했어. 다시 해볼까?');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  const handleReviewDismiss = () => {
+    setReviewWinner(null);
+  };
 
   const handleClick = () => {
     setBubble(pickClickMessage(state));
@@ -914,6 +974,15 @@ export function MallangOverlayPage() {
           <MicIcon />
         </MicButton>
       </PromptRow>
+
+      {reviewWinner && (
+        <LunchReviewCard
+          winner={reviewWinner}
+          onSubmit={handleReviewSubmit}
+          onDismiss={handleReviewDismiss}
+          isSubmitting={reviewSubmitting}
+        />
+      )}
     </Overlay>
   );
 }

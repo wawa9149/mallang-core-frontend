@@ -1,5 +1,10 @@
 import { http } from './http';
 
+export interface TtsSpeakOptions {
+  emotion?: string;
+  emotionScore?: number;
+}
+
 /**
  * 백엔드 /api/tts/speak 를 호출해 mp3 binary 를 가져온다.
  *
@@ -9,15 +14,16 @@ import { http } from './http';
  * - 503: 서버에 Clova 키가 없거나 업스트림 오류 → null 반환.
  * - 그 외 axios 에러: 그대로 throw.
  */
-export async function fetchSpeechBlob(text: string): Promise<Blob | null> {
+export async function fetchSpeechBlob(
+  text: string,
+  options?: TtsSpeakOptions,
+): Promise<Blob | null> {
   try {
     const { data, status } = await http.post<Blob>(
       '/tts/speak',
-      { text },
+      { text, emotion: options?.emotion, emotionScore: options?.emotionScore },
       {
         responseType: 'blob',
-        // 401 retry 인터셉터를 그대로 타도록 timeout 만 따로 늘려 둔다.
-        // Clova 응답은 보통 1~2초 안쪽이지만, 긴 문장에서 약간 길어질 수 있다.
         timeout: 15_000,
       },
     );

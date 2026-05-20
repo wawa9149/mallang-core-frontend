@@ -41,6 +41,31 @@ const Wrapper = styled.div`
   padding: 24px 20px 20px;
 `;
 
+const CloseButton = styled.button`
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  color: #888;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.12);
+    color: #555;
+  }
+`;
+
 const CharacterArea = styled.div`
   position: relative;
   flex: 1;
@@ -268,6 +293,12 @@ export function OnboardingFlow() {
 
   return (
     <Wrapper>
+      <CloseButton
+        onClick={() => window.mallang?.window.closeMallang()}
+        title="닫기"
+      >
+        ×
+      </CloseButton>
       <CharacterArea>
         <AnimatePresence mode="wait">
           <Bubble
