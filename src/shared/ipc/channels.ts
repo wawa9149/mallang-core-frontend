@@ -51,7 +51,24 @@ export const IPC_CHANNELS = {
      */
     OPEN_EXTERNAL: 'shell:open-external',
   },
+  AUTO_LAUNCH: {
+    /** 렌더러 → 메인: 현재 자동 실행 등록 상태와 OS 지원 여부를 조회. */
+    GET: 'auto-launch:get',
+    /** 렌더러 → 메인: 자동 실행 등록 상태를 변경. boolean 인자. */
+    SET: 'auto-launch:set',
+  },
 } as const;
+
+/**
+ * 자동 실행(부팅 시 함께 실행) 상태.
+ * - enabled: 현재 등록 여부.
+ * - supported: 이 환경(OS/배포 형태)에서 토글이 의미가 있는지.
+ *   dev 환경에서 실행하거나 Linux 일부 배포판에서는 false 가 된다.
+ */
+export interface AutoLaunchStatus {
+  enabled: boolean;
+  supported: boolean;
+}
 
 export type ScheduledIntent =
   | 'morning_check'
@@ -95,4 +112,5 @@ export type IpcChannel =
   | (typeof IPC_CHANNELS.SCHEDULER)[keyof typeof IPC_CHANNELS.SCHEDULER]
   | (typeof IPC_CHANNELS.NOTIFICATION)[keyof typeof IPC_CHANNELS.NOTIFICATION]
   | (typeof IPC_CHANNELS.PROFILE)[keyof typeof IPC_CHANNELS.PROFILE]
-  | (typeof IPC_CHANNELS.SHELL)[keyof typeof IPC_CHANNELS.SHELL];
+  | (typeof IPC_CHANNELS.SHELL)[keyof typeof IPC_CHANNELS.SHELL]
+  | (typeof IPC_CHANNELS.AUTO_LAUNCH)[keyof typeof IPC_CHANNELS.AUTO_LAUNCH];

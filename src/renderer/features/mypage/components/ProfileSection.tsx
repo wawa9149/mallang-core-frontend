@@ -12,6 +12,7 @@ import { syncSchedulerFromStores } from '../../../shared/scheduler/sync';
 import { useAuthStore } from '../../../shared/stores/auth-store';
 import { useUserProfileStore } from '../../../shared/stores/user-profile-store';
 import { signOutAndReturnToLogin } from '../../../shared/window/sign-out';
+import { AutoLaunchToggle } from './AutoLaunchToggle';
 import { NotificationToggle } from './NotificationToggle';
 import { OpenAiKeySection } from './OpenAiKeySection';
 import { TeamLocationSection } from './TeamLocationSection';
@@ -343,6 +344,7 @@ export function ProfileSection() {
       </SaveButton>
       <NotificationToggle />
       <TtsToggle />
+      <AutoLaunchToggle />
       <TeamLocationSection />
       <OpenAiKeySection />
       <SignOutButton type="button" onClick={handleSignOut}>

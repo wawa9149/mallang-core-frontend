@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron';
 import {
   IPC_CHANNELS,
+  type AutoLaunchStatus,
   type NotificationShowPayload,
   type ProfileUpdatedPayload,
   type SchedulerConfigPayload,
@@ -21,6 +22,27 @@ import {
   getMallangWindow,
 } from '../windows/mallang-window';
 import { createMyPageWindow, getMyPageWindow } from '../windows/mypage-window';
+
+/**
+ * dev 환경(=`pnpm start`) 에서는 process.execPath 가 Electron 바이너리라
+ * 사용자에게 의미 있는 자동 실행 등록이 불가능하다. 또 일부 Linux 배포판은
+ * setLoginItemSettings 자체가 no-op 이라 토글이 의미가 없다.
+ */
+function isAutoLaunchSupported(): boolean {
+  if (!app.isPackaged) return false;
+  if (process.platform !== 'darwin' && process.platform !== 'win32') {
+    return false;
+  }
+  return true;
+}
+
+function readAutoLaunchStatus(): AutoLaunchStatus {
+  if (!isAutoLaunchSupported()) {
+    return { enabled: false, supported: false };
+  }
+  const settings = app.getLoginItemSettings();
+  return { enabled: settings.openAtLogin, supported: true };
+}
 
 export function registerIpcHandlers() {
   ipcMain.handle(IPC_CHANNELS.APP.GET_VERSION, () => app.getVersion());
@@ -121,6 +143,26 @@ export function registerIpcHandlers() {
       }
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
       await shell.openExternal(parsed.toString());
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.AUTO_LAUNCH.GET, (): AutoLaunchStatus => {
+    return readAutoLaunchStatus();
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.AUTO_LAUNCH.SET,
+    (_event, enabled: boolean): AutoLaunchStatus => {
+      if (!isAutoLaunchSupported()) {
+        return { enabled: false, supported: false };
+      }
+      // openAsHidden: macOS 에서 부팅 시 창이 보이지 않게 백그라운드로 띄우는 옵션.
+      // 윈도우/리눅스는 이 필드를 무시하므로 그대로 두어도 안전.
+      app.setLoginItemSettings({
+        openAtLogin: enabled,
+        openAsHidden: true,
+      });
+      return readAutoLaunchStatus();
     },
   );
 

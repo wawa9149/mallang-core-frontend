@@ -53,7 +53,9 @@ export function createMallangWindow() {
     maximizable: false,
     minimizable: false,
     fullscreenable: false,
-    skipTaskbar: true,
+    // 메인 앱 창 역할이라 작업표시줄/Dock 인디케이터에 노출해 둔다.
+    // (메인 로그인 창이 닫힌 뒤에도 사용자가 앱이 실행 중임을 시각적으로 확인할 수 있게 한다.)
+    skipTaskbar: false,
     alwaysOnTop: true,
     focusable: true,
     roundedCorners: true,

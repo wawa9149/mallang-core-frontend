@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   IPC_CHANNELS,
+  type AutoLaunchStatus,
   type NotificationShowPayload,
   type ProfileUpdatedPayload,
   type SchedulerConfigPayload,
@@ -81,6 +82,14 @@ const mallangBridge = {
         ipcRenderer.removeListener(IPC_CHANNELS.PROFILE.UPDATED, listener);
       };
     },
+  },
+  autoLaunch: {
+    /** 현재 OS 등록 상태(enabled)와 토글이 의미 있는 환경인지(supported) 조회. */
+    get: (): Promise<AutoLaunchStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_LAUNCH.GET),
+    /** 자동 실행 등록 상태를 변경. 응답으로 최신 상태가 반환된다. */
+    set: (enabled: boolean): Promise<AutoLaunchStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_LAUNCH.SET, enabled),
   },
 } as const;
 
