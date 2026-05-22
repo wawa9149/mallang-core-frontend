@@ -125,4 +125,3 @@ xattr -cr /Applications/Mallang\ Core.app
 - [ ] 주간 감정 리포트 차트 연동
 - [ ] 트레이 아이콘 메뉴
 - [ ] electron-updater 자동 업데이트
-- [ ] Windows 빌드 테스트
